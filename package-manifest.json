@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "name": "codex-essentials",
+  "status": "authoring-source",
+  "skills": [
+    "adversarial-check",
+    "analyze",
+    "delivery-proof",
+    "diagnose",
+    "grill-me",
+    "handoff",
+    "prototype",
+    "self-check",
+    "tdd",
+    "visual-proof",
+    "wiki"
+  ],
+  "agents": [
+    "analyst",
+    "architect",
+    "code-reviewer",
+    "critic",
+    "debugger",
+    "dependency-expert",
+    "executor",
+    "explore",
+    "explore-luna",
+    "git-master",
+    "planner",
+    "researcher",
+    "test-engineer",
+    "verifier",
+    "vision",
+    "writer"
+  ],
+  "runtime": {
+    "hooks": false,
+    "automaticRouting": false,
+    "workflowState": false,
+    "backgroundServices": false,
+    "automaticUpdates": false
+  },
+  "migration": {
+    "importedFrom": "C:\\Users\\growlee\\.codex\\skills",
+    "importedAgentsFrom": "C:\\Users\\growlee\\.codex\\agents",
+    "importedOn": "2026-08-29",
+    "installedCopiesRetained": true,
+    "activeWikiSynchronizedOn": "2026-08-29",
+    "knownExternalDependency": null
+  }
+}
