@@ -26,9 +26,12 @@ This repository is the authoring source for the retained Codex skills and native
 When adding, removing, or renaming a skill or agent:
 
 - Update `package-manifest.json`.
+- Update `routing-matrix.json` so every skill has one route and every agent remains classified.
 - Update `README.md`.
 - Keep skill directory names, skill frontmatter names, agent filenames, and agent `name` fields consistent.
 - Preserve the global model-routing policy; do not duplicate or independently redefine it here.
+
+`routing-matrix.json` owns only task-shape, invocation, authority, optional-subagent, result, and stop boundaries. It must not contain model assignments or imply that a skill launches a subagent.
 
 ## Verification
 
@@ -41,6 +44,7 @@ After changes, run:
 Also verify that:
 
 - the manifest lists exactly the skills and agents present in the repository;
+- the routing matrix lists every manifest skill and agent, references only packaged agents, and preserves explicit-only invocation metadata;
 - changed runtime mirrors match their repository sources when synchronization was requested;
 - no OMX dependency, hook, workflow state, or unfinished placeholder was introduced.
 

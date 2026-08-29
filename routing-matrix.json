@@ -1,0 +1,321 @@
+{
+  "schemaVersion": 1,
+  "rules": {
+    "automaticRouting": false,
+    "skillLaunchesSubagents": false,
+    "oneOwner": true
+  },
+  "skillRoutes": [
+    {
+      "id": "read-only-analysis",
+      "taskShape": "Repository architecture, behavior, data flow, dependency, or change-impact analysis",
+      "skill": "analyze",
+      "kind": "analysis",
+      "invocation": "matched-or-explicit",
+      "authority": "read-only",
+      "delegation": "optional",
+      "agents": [
+        {
+          "name": "explore",
+          "when": "One bounded current-repository lookup materially improves the evidence"
+        },
+        {
+          "name": "critic",
+          "when": "A material reasoning dispute remains after the first evidence-backed conclusion"
+        }
+      ],
+      "result": "Conclusion with evidence separated from inference and unresolved unknowns",
+      "stop": "The question is sufficiently answered from current evidence"
+    },
+    {
+      "id": "root-cause-diagnosis",
+      "taskShape": "Concrete bug, regression, repeated failure, or performance problem with an unknown cause",
+      "skill": "diagnose",
+      "kind": "diagnosis",
+      "invocation": "matched-or-explicit",
+      "authority": "read-only unless repair is explicitly requested",
+      "delegation": "optional",
+      "agents": [
+        {
+          "name": "debugger",
+          "when": "The cause is unknown or the same failure repeats"
+        },
+        {
+          "name": "test-engineer",
+          "when": "A discriminating check or stable benchmark is missing"
+        }
+      ],
+      "result": "Most likely cause, confidence, discriminating evidence, and remaining gaps",
+      "stop": "The requested diagnosis is sufficiently supported or the concrete evidence gap is identified"
+    },
+    {
+      "id": "decision-interview",
+      "taskShape": "The user explicitly asks to be interviewed or to stress-test a plan through questions",
+      "skill": "grill-me",
+      "kind": "interview",
+      "invocation": "explicit-only",
+      "authority": "interview-only",
+      "delegation": "none",
+      "agents": [],
+      "result": "One decision-dependent question at a time and a concise final decision summary",
+      "stop": "The material decisions are resolved or the user stops the interview"
+    },
+    {
+      "id": "throwaway-prototype",
+      "taskShape": "The user requests a disposable runnable experiment for one uncertain product, logic, state, or UI question",
+      "skill": "prototype",
+      "kind": "prototype",
+      "invocation": "user-requested",
+      "authority": "requested local prototype changes only",
+      "delegation": "optional",
+      "agents": [
+        {
+          "name": "executor",
+          "when": "One independent bounded implementation slice materially improves throughput"
+        },
+        {
+          "name": "vision",
+          "when": "Reference-image or screenshot interpretation is necessary"
+        }
+      ],
+      "result": "Runnable prototype, run command, observed answer, and keep-or-delete decision",
+      "stop": "The named prototype question is answered"
+    },
+    {
+      "id": "explicit-tdd",
+      "taskShape": "The user explicitly requests test-first implementation",
+      "skill": "tdd",
+      "kind": "implementation",
+      "invocation": "explicit-only",
+      "authority": "requested implementation scope",
+      "delegation": "optional",
+      "agents": [
+        {
+          "name": "test-engineer",
+          "when": "A material test-shape or regression-coverage risk remains"
+        }
+      ],
+      "result": "Focused failing observation, passing observation, and remaining validation gaps",
+      "stop": "The requested behavior passes the focused regression check and refactoring preserves it"
+    },
+    {
+      "id": "delivery-proof",
+      "taskShape": "An exact source, artifact, runtime, deployment, or live/public delivery claim needs proof",
+      "skill": "delivery-proof",
+      "kind": "proof",
+      "invocation": "explicit-only",
+      "authority": "read-only",
+      "delegation": "optional",
+      "agents": [
+        {
+          "name": "verifier",
+          "when": "The user or risk boundary requires an independent proof owner and the current owner is not already the verifier"
+        },
+        {
+          "name": "vision",
+          "when": "Visual evidence is indispensable to the delivery claim"
+        }
+      ],
+      "result": "PASS, FAIL, or BLOCKED for the exact requested boundary with identity-linked evidence",
+      "stop": "The claim is proved, disproved, or blocked by one concrete missing evidence boundary"
+    },
+    {
+      "id": "visual-proof",
+      "taskShape": "A concrete UI state, transition, layout, or visual-runtime claim needs proof",
+      "skill": "visual-proof",
+      "kind": "proof",
+      "invocation": "explicit-only",
+      "authority": "read-only unless repair is explicitly requested",
+      "delegation": "optional",
+      "agents": [
+        {
+          "name": "vision",
+          "when": "Screenshot or image interpretation materially helps"
+        }
+      ],
+      "result": "PASS, FAIL, or BLOCKED with route, viewport, state, ownership, transition, and visual evidence",
+      "stop": "The named visual claim is proved, disproved, or concretely blocked"
+    },
+    {
+      "id": "adversarial-check",
+      "taskShape": "A concrete behavior or trust boundary needs a bounded hostile check",
+      "skill": "adversarial-check",
+      "kind": "proof",
+      "invocation": "explicit-only",
+      "authority": "read-only or safe local checks within the exact authorization",
+      "delegation": "optional",
+      "agents": [
+        {
+          "name": "code-reviewer",
+          "when": "An exact code or security candidate needs independent review"
+        },
+        {
+          "name": "test-engineer",
+          "when": "The existing harness cannot express the discriminating hostile check"
+        },
+        {
+          "name": "architect",
+          "when": "The material risk is a system or trust-boundary decision"
+        }
+      ],
+      "result": "Verdicts for three to seven risk-relevant scenarios plus the normal-path baseline",
+      "stop": "Every selected risk has a verdict or one concrete blocker"
+    },
+    {
+      "id": "wiki-operation",
+      "taskShape": "The user explicitly requests reading or maintaining a repository-local Markdown wiki",
+      "skill": "wiki",
+      "kind": "documentation",
+      "invocation": "explicit-only",
+      "authority": "read-only for lookup; exact requested wiki edits for maintenance",
+      "delegation": "optional",
+      "agents": [
+        {
+          "name": "writer",
+          "when": "A substantial evidence-grounded documentation rewrite materially benefits from a dedicated writing slice"
+        }
+      ],
+      "result": "Requested wiki finding or exact durable documentation change",
+      "stop": "The requested wiki operation is complete; no automatic session capture follows"
+    },
+    {
+      "id": "explicit-handoff",
+      "taskShape": "The user explicitly requests a context snapshot for another task or agent",
+      "skill": "handoff",
+      "kind": "handoff",
+      "invocation": "explicit-only",
+      "authority": "write only the requested handoff artifact",
+      "delegation": "none",
+      "agents": [],
+      "result": "One evidence-linked context snapshot with authority boundaries, blockers, and next action",
+      "stop": "The handoff artifact is written and read back; no task is launched automatically"
+    },
+    {
+      "id": "explicit-self-check",
+      "taskShape": "The user explicitly requests one check for repetition, reopened decisions, or drift from the current request",
+      "skill": "self-check",
+      "kind": "guard",
+      "invocation": "explicit-only",
+      "authority": "read-only using already available conversation evidence",
+      "delegation": "none",
+      "agents": [],
+      "result": "Direct finding and the smallest different authorized next action or concrete blocker",
+      "stop": "One bounded finding is returned without retry, state, delegation, or automatic continuation"
+    }
+  ],
+  "agentCatalog": [
+    {
+      "name": "analyst",
+      "classification": "standalone",
+      "useWhen": "Requirements, acceptance criteria, or material ambiguity need read-only clarification",
+      "avoid": "General repository tracing or root-cause diagnosis",
+      "returns": "Implementable definition of done and material unresolved decisions"
+    },
+    {
+      "name": "architect",
+      "classification": "routed",
+      "useWhen": "System boundaries, interfaces, ownership, or long-horizon tradeoffs are material",
+      "avoid": "Small single-owner implementation decisions",
+      "returns": "Boundaries, interfaces, risks, and recommendation"
+    },
+    {
+      "name": "code-reviewer",
+      "classification": "routed",
+      "useWhen": "One exact non-trivial code or security candidate needs independent review",
+      "avoid": "Planning, implementation, or repeated review loops",
+      "returns": "Findings ordered by severity or explicit approval"
+    },
+    {
+      "name": "critic",
+      "classification": "routed",
+      "useWhen": "A material plan, reasoning, operational, or rollback risk remains disputed",
+      "avoid": "Automatic second opinions or unchanged review repeats",
+      "returns": "Concrete challenge and safer correction"
+    },
+    {
+      "name": "debugger",
+      "classification": "routed",
+      "useWhen": "A concrete failure has an unknown root cause or repeats",
+      "avoid": "Known mechanical fixes without diagnostic uncertainty",
+      "returns": "Reproduction, root cause, and discriminating evidence"
+    },
+    {
+      "name": "dependency-expert",
+      "classification": "standalone",
+      "useWhen": "A package, SDK, framework, upgrade, replacement, or migration decision is required",
+      "avoid": "Usage documentation for an already chosen dependency",
+      "returns": "Compared options, compatibility risks, and recommendation"
+    },
+    {
+      "name": "executor",
+      "classification": "routed",
+      "useWhen": "One genuinely independent bounded implementation slice materially improves throughput",
+      "avoid": "Trivial work, planning, or final ownership claims",
+      "returns": "Scoped changes, checks, and remaining risks"
+    },
+    {
+      "name": "explore",
+      "classification": "routed",
+      "useWhen": "One bounded current-repository file, symbol, or relationship lookup saves owner time",
+      "avoid": "External research, implementation, or broad audit ownership",
+      "returns": "Current file and symbol map with references"
+    },
+    {
+      "name": "explore-luna",
+      "classification": "fallback",
+      "fallbackFor": "explore",
+      "useWhen": "The primary explore model is unavailable, rate-limited, usage-limited, or inaccessible",
+      "avoid": "Routine preference or escalation from an unsatisfactory answer",
+      "returns": "The same bounded read-only lookup contract as explore"
+    },
+    {
+      "name": "git-master",
+      "classification": "standalone",
+      "useWhen": "The user explicitly authorizes a Git operation with materially complex history topology",
+      "avoid": "Routine status, diff, add, commit, or push work",
+      "returns": "Exact history evidence, performed operation, and before-and-after state"
+    },
+    {
+      "name": "planner",
+      "classification": "standalone",
+      "useWhen": "A bounded multi-step objective needs evidence-grounded sequencing and acceptance criteria",
+      "avoid": "Trivial work or a replacement planning workflow",
+      "returns": "Small executable plan with verification and stop conditions"
+    },
+    {
+      "name": "researcher",
+      "classification": "standalone",
+      "useWhen": "Current official behavior of an already chosen external technology needs primary-source evidence",
+      "avoid": "Dependency selection or repo-local implementation mapping",
+      "returns": "Version-aware primary-source findings and local consequence"
+    },
+    {
+      "name": "test-engineer",
+      "classification": "routed",
+      "useWhen": "A non-trivial behavior lacks a reliable regression shape or stable benchmark",
+      "avoid": "Routine test volume or unrelated test cleanup",
+      "returns": "Smallest test strategy or runnable assertion"
+    },
+    {
+      "name": "verifier",
+      "classification": "routed",
+      "useWhen": "A supplied completion or delivery claim requires independent validation",
+      "avoid": "Implementation, repair, or duplicate proof by the same owner",
+      "returns": "PASS, FAIL, or BLOCKED with identity-linked evidence"
+    },
+    {
+      "name": "vision",
+      "classification": "routed",
+      "useWhen": "Image, screenshot, or diagram interpretation is necessary",
+      "avoid": "Source-only review or general UI implementation",
+      "returns": "Bounded visual finding tied to acceptance"
+    },
+    {
+      "name": "writer",
+      "classification": "routed",
+      "useWhen": "A substantial bounded documentation or user-guidance deliverable needs evidence-grounded writing",
+      "avoid": "Automatic notes, session capture, or undocumented product decisions",
+      "returns": "Exact requested documentation grounded in supplied sources"
+    }
+  ]
+}
