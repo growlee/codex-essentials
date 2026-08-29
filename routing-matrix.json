@@ -220,7 +220,7 @@
     },
     {
       "name": "code-reviewer",
-      "classification": "routed",
+      "classification": "standalone",
       "useWhen": "One exact non-trivial code or security candidate needs independent review",
       "avoid": "Planning, implementation, or repeated review loops",
       "returns": "Findings ordered by severity or explicit approval"

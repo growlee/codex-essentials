@@ -54,6 +54,18 @@ try {
     Invoke-ExpectedFailure -Pattern "references undeclared agent 'designer'"
 
     Copy-Item -LiteralPath $sourceRoutingPath -Destination $routingPath -Force
+    $routing = Get-Content -Raw -LiteralPath $routingPath | ConvertFrom-Json
+    ($routing.skillRoutes | Where-Object skill -eq 'self-check').invocation = 'user-requested'
+    $routing | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $routingPath
+    Invoke-ExpectedFailure -Pattern "Skill 'self-check' must remain explicit-only"
+
+    Copy-Item -LiteralPath $sourceRoutingPath -Destination $routingPath -Force
+    $routing = Get-Content -Raw -LiteralPath $routingPath | ConvertFrom-Json
+    $routing.rules.automaticRouting = 'false'
+    $routing | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $routingPath
+    Invoke-ExpectedFailure -Pattern 'routing-matrix.rules.automaticRouting must be a JSON boolean'
+
+    Copy-Item -LiteralPath $sourceRoutingPath -Destination $routingPath -Force
     $metadataPath = Join-Path $testRoot 'skills\self-check\agents\openai.yaml'
     $metadata = Get-Content -Raw -LiteralPath $metadataPath
     $metadata.Replace('allow_implicit_invocation: false', 'allow_implicit_invocation: true') |

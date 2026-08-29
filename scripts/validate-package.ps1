@@ -5,9 +5,36 @@ $manifestPath = Join-Path $repoRoot 'package-manifest.json'
 $skillsRoot = Join-Path $repoRoot 'skills'
 $agentsRoot = Join-Path $repoRoot 'agents'
 
+function Assert-JsonInteger {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Value,
+        [Parameter(Mandatory = $true)]
+        [string]$Field
+    )
+
+    if ($Value -isnot [int] -and $Value -isnot [long]) {
+        throw "$Field must be a JSON integer"
+    }
+}
+
+function Assert-JsonBoolean {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Value,
+        [Parameter(Mandatory = $true)]
+        [string]$Field
+    )
+
+    if ($Value -isnot [bool]) {
+        throw "$Field must be a JSON boolean"
+    }
+}
+
 & (Join-Path $PSScriptRoot 'validate-skills.ps1')
 
 $manifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
+Assert-JsonInteger -Value $manifest.schemaVersion -Field 'package-manifest.schemaVersion'
 if ($manifest.schemaVersion -ne 2) {
     throw "Unsupported package manifest schemaVersion '$($manifest.schemaVersion)'"
 }
@@ -66,9 +93,13 @@ if (-not (Test-Path -LiteralPath $routingMatrixPath -PathType Leaf)) {
 }
 
 $routing = Get-Content -Raw -LiteralPath $routingMatrixPath | ConvertFrom-Json
+Assert-JsonInteger -Value $routing.schemaVersion -Field 'routing-matrix.schemaVersion'
 if ($routing.schemaVersion -ne 1) {
     throw "Unsupported routing matrix schemaVersion '$($routing.schemaVersion)'"
 }
+Assert-JsonBoolean -Value $routing.rules.automaticRouting -Field 'routing-matrix.rules.automaticRouting'
+Assert-JsonBoolean -Value $routing.rules.skillLaunchesSubagents -Field 'routing-matrix.rules.skillLaunchesSubagents'
+Assert-JsonBoolean -Value $routing.rules.oneOwner -Field 'routing-matrix.rules.oneOwner'
 if ($routing.rules.automaticRouting -ne $false) {
     throw 'Routing matrix must keep automaticRouting disabled'
 }
@@ -94,6 +125,16 @@ if ($routingSkillDifference.Count -ne 0) {
 
 $allowedInvocations = @('matched-or-explicit', 'explicit-only', 'user-requested')
 $allowedDelegation = @('none', 'optional')
+$requiredExplicitOnlySkills = @(
+    'adversarial-check',
+    'delivery-proof',
+    'grill-me',
+    'handoff',
+    'self-check',
+    'tdd',
+    'visual-proof',
+    'wiki'
+)
 $referencedAgents = [System.Collections.Generic.List[string]]::new()
 
 foreach ($route in $skillRoutes) {
@@ -118,6 +159,9 @@ foreach ($route in $skillRoutes) {
     }
     if ($route.kind -eq 'proof' -and $route.invocation -ne 'explicit-only') {
         throw "Proof skill '$($route.skill)' must be explicit-only"
+    }
+    if ($route.skill -in $requiredExplicitOnlySkills -and $route.invocation -ne 'explicit-only') {
+        throw "Skill '$($route.skill)' must remain explicit-only"
     }
 
     $routeAgentNames = @($routeAgents | ForEach-Object { [string]$_.name })
