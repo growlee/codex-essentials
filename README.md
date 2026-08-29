@@ -1,108 +1,143 @@
 # Codex Essentials
 
-Codex Essentials is a small, OMX-independent Codex marketplace plugin plus a companion native-agent pack. It is based on selected workflows and role ideas from oh-my-codex (OMX), rewritten as lean, explicit, non-recursive contracts.
+[![Validate](https://github.com/growlee/codex-essentials/actions/workflows/validate.yml/badge.svg)](https://github.com/growlee/codex-essentials/actions/workflows/validate.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## Included skills
+Codex Essentials is a lean Codex marketplace plugin plus a companion native-agent pack. It keeps the useful task contracts and role ideas from [oh-my-codex (OMX)](https://github.com/Yeachan-Heo/oh-my-codex), but removes automatic routing, recursive repair loops, workflow state, and mandatory orchestration.
 
-- `analyze`
-- `diagnose`
-- `self-check`
-- `grill-me`
-- `prototype`
-- `tdd`
-- `delivery-proof`
-- `visual-proof`
-- `adversarial-check`
-- `wiki`
-- `handoff`
+## Why
 
-Each plugin skill remains a normal Codex skill rooted at `plugins/codex-essentials/skills/<name>/SKILL.md`. Supporting files stay beside the entrypoint.
+Large agent harnesses can spend more effort managing themselves than solving the user's task. Codex Essentials takes the opposite approach:
 
-## Included native agents
+- work directly by default;
+- invoke specialized skills explicitly when they add value;
+- use native agents only for bounded, independently useful work;
+- verify runtime copies before changing them;
+- stop when the requested outcome is proved.
 
-- `analyst`
-- `architect`
-- `code-reviewer`
-- `critic`
-- `debugger`
-- `dependency-expert`
-- `executor`
-- `explore`
-- `explore-luna`
-- `git-master`
-- `planner`
-- `researcher`
-- `test-engineer`
-- `verifier`
-- `vision`
-- `writer`
+The result is a small package whose behavior can be inspected, tested, and installed without hooks or background services.
 
-Each native agent is stored as `agents/<name>.toml`.
+## What it demonstrates
 
-Codex plugin manifests do not install native-agent TOML definitions. The agents therefore remain a separate, explicit component of this repository rather than being represented as plugin capabilities.
+| Area | Implementation |
+|---|---|
+| Codex packaging | GitHub-compatible marketplace and plugin manifests |
+| Skill design | 11 bounded skills with explicit authority and stop conditions |
+| Agent design | 16 typed native-agent definitions kept separate from the plugin |
+| Routing | Declarative, non-executing skill/agent matrix |
+| Safety | No hooks, automatic routing, workflow state, or self-repair lifecycle |
+| Delivery | Package validation, routing tests, sync tests, portable agent installation, and CI |
 
-## Plugin installation
+## Skills
 
-Add this GitHub repository as a marketplace, then install the skill plugin:
+| Skill | Purpose |
+|---|---|
+| `analyze` | Trace architecture, behavior, dependencies, and change impact |
+| `diagnose` | Find the most likely root cause of a concrete failure |
+| `self-check` | Detect repeated work or reopened settled decisions without creating a loop |
+| `grill-me` | Resolve material decisions through a focused interview and durable record |
+| `prototype` | Build a disposable experiment for one concrete question |
+| `tdd` | Drive an explicitly requested change from a failing test |
+| `delivery-proof` | Validate a delivery claim against concrete evidence |
+| `visual-proof` | Validate visible behavior through rendered or runtime evidence |
+| `adversarial-check` | Challenge a candidate against bounded failure modes |
+| `wiki` | Produce evidence-grounded project documentation |
+| `handoff` | Prepare a bounded, verifiable continuation contract |
+
+The plugin skills live under [`plugins/codex-essentials/skills`](plugins/codex-essentials/skills). Native agents remain in [`agents`](agents) because Codex plugin manifests do not install agent TOML definitions.
+
+## Examples
+
+- [`grill-me` decision record](examples/grill-me-decision-record.md) shows how answers remain durable without becoming workflow state.
+- [`self-check` loop stop](examples/self-check-loop-stop.md) shows how repeated work is stopped without retry counters or recursive repair.
+
+## Install the plugin
+
+Prerequisite: a Codex CLI build that provides `codex plugin marketplace` and `codex plugin add`.
 
 ```powershell
-codex plugin marketplace add growlee/codex-essentials --ref main `
+codex plugin marketplace add growlee/codex-essentials --ref v0.1.0 `
   --sparse .agents/plugins `
   --sparse plugins/codex-essentials
 
 codex plugin add codex-essentials@codex-essentials
 ```
 
-Start a new Codex task after installation so the skill catalog is loaded from the installed plugin.
+Start a new Codex task after installation so the skill catalog is reloaded.
 
-Native agents use a separate explicit synchronization step from a local checkout:
+## Install the native agents
 
-```powershell
-.\scripts\sync-runtime.ps1 -Mode Verify -Components Agents
-.\scripts\sync-runtime.ps1 -Mode Apply -Components Agents
+Clone the repository, then use the dependency-free portable installer. `Verify` is read-only. `Apply` installs missing manifest-listed agents but preserves changed definitions and never prunes unrelated runtime files.
+
+```bash
+python scripts/install-agents.py --mode verify
+python scripts/install-agents.py --mode apply
+python scripts/install-agents.py --mode verify
 ```
 
-The default `-Components All` remains available for existing direct-runtime installations that intentionally synchronize both skills and agents.
+Pass `--runtime-root <path>` to target a non-default Codex home. The default is `$CODEX_HOME` when set, otherwise `~/.codex`.
 
-## Routing matrix
+To replace a changed managed agent, inspect the reported drift first and opt in explicitly:
 
-[`routing-matrix.json`](routing-matrix.json) is the package-level source of truth for pairing task shapes, skills, and optional native subagents. It records invocation, authority, evidence, and stop boundaries without enabling automatic routing.
+```bash
+python scripts/install-agents.py --mode apply --replace-changed
+```
 
-Skills never launch subagents themselves. The current task owner may add only a matrix-listed native subagent when its stated evidence gap applies, and the owner remains responsible for integration and the final claim. Model selection remains in `agents/<name>.toml` and is not duplicated in the matrix.
+Each replaced definition is preserved beside it as `<name>.toml.bak`. The installer refuses to overwrite an existing backup.
 
-## Boundaries
+The existing PowerShell workflow remains available for users who intentionally synchronize skills, agents, or both:
 
-- This repository is the authoring source. Plugin skills live under `plugins/codex-essentials`; optional direct-runtime copies under `C:\Users\growlee\.codex\skills` and native-agent copies under `C:\Users\growlee\.codex\agents` are managed through an explicit verify-first synchronization script.
-- The kit does not contain hooks, automatic routing, workflow state, background services, notification dispatch, or self-repair loops.
-- The routing matrix is declarative. It does not activate skills, launch agents, or create a lifecycle.
-- Automatic loop prevention is a short global `AGENTS.md` invariant; `$self-check` is an explicit-only, read-only diagnostic and does not implement lifecycle automation.
-- Runtime synchronization is explicit and verify-first; the package does not install hooks or background services.
-- No included skill requires the OMX CLI or runtime.
+```powershell
+./scripts/sync-runtime.ps1 -Mode Verify -Components Agents
+./scripts/sync-runtime.ps1 -Mode Apply -Components Agents
+```
+
+## Architecture
+
+```text
+codex-essentials/
+├─ .agents/plugins/marketplace.json
+├─ plugins/codex-essentials/
+│  ├─ .codex-plugin/plugin.json
+│  └─ skills/
+├─ agents/
+├─ examples/
+├─ scripts/
+├─ package-manifest.json
+└─ routing-matrix.json
+```
+
+[`routing-matrix.json`](routing-matrix.json) records task shape, invocation, authority, optional-agent conditions, expected result, and stop boundaries. It is declarative: it does not activate skills or launch agents. The current task owner remains responsible for integration and final claims.
+
+## Compatibility
+
+| Component | Supported path | Validation |
+|---|---|---|
+| Marketplace plugin | Codex CLI plugin commands | System plugin validator and package tests |
+| Native-agent installer | Python 3.9+ on Windows, Linux, and macOS | CI matrix using temporary runtime roots |
+| Full runtime sync | PowerShell 7 on Windows | Windows CI and no-prune tests |
 
 ## Validation
 
-Validate the complete package without installing dependencies:
-
 ```powershell
-.\scripts\validate-package.ps1
-.\scripts\test-routing-matrix.ps1
-.\scripts\test-sync-runtime.ps1
+./scripts/validate-package.ps1
+./scripts/test-routing-matrix.ps1
+./scripts/test-sync-runtime.ps1
+python scripts/test-install-agents.py
 ```
 
-Verify installed runtime mirrors without changing them:
+The tests verify exact skill and agent coverage, explicit-only metadata, routing boundaries, drift detection, no-prune behavior, and agents-only installation.
 
-```powershell
-.\scripts\sync-runtime.ps1 -Mode Verify -Components All
-```
+## Design boundaries
 
-Synchronize only manifest-listed skills and agents after reviewing reported drift:
+- No hooks, automatic routing, workflow state, background services, notification dispatch, or self-repair loops.
+- Skills never launch subagents themselves.
+- Runtime synchronization is explicit and verify-first.
+- No included skill requires the OMX CLI or runtime.
+- Installed copies are runtime mirrors; this repository remains the authoring source.
 
-```powershell
-.\scripts\sync-runtime.ps1 -Mode Apply -Components All
-```
+## Origin and license
 
-`Apply` copies authoring sources and verifies their hashes. It never deletes runtime-only files, adds hooks, or enables automatic synchronization.
+Codex Essentials is an independent package derived from selected OMX workflow and role ideas. It is not affiliated with or endorsed by the OMX project.
 
-## License
-
-Codex Essentials is released under the [MIT License](LICENSE).
+Released under the [MIT License](LICENSE).

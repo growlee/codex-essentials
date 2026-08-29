@@ -6,7 +6,7 @@ This repository is the authoring source for the retained Codex skills and native
 
 - Edit skills only under `plugins/codex-essentials/skills/<name>/`.
 - Edit native agents only under `agents/<name>.toml`.
-- Treat copies under `C:\Users\growlee\.codex\skills` and `C:\Users\growlee\.codex\agents` as installed runtime mirrors, not authoring sources.
+- Treat copies under `~/.codex/skills` and `~/.codex/agents` as installed runtime mirrors, not authoring sources.
 - Do not edit an installed copy without making the corresponding source change here.
 - Treat package changes as source-only unless the current user request explicitly includes installation, synchronization, activation, or a live Codex update.
 
@@ -40,6 +40,9 @@ After changes, run:
 
 ```powershell
 .\scripts\validate-package.ps1
+.\scripts\test-routing-matrix.ps1
+.\scripts\test-sync-runtime.ps1
+python .\scripts\test-install-agents.py
 ```
 
 Also verify that:

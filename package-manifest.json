@@ -45,13 +45,5 @@
     "workflowState": false,
     "backgroundServices": false,
     "automaticUpdates": false
-  },
-  "migration": {
-    "importedFrom": "C:\\Users\\growlee\\.codex\\skills",
-    "importedAgentsFrom": "C:\\Users\\growlee\\.codex\\agents",
-    "importedOn": "2026-08-29",
-    "installedCopiesRetained": true,
-    "activeWikiSynchronizedOn": "2026-08-29",
-    "knownExternalDependency": null
   }
 }
