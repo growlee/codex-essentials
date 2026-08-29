@@ -1,7 +1,12 @@
 {
   "schemaVersion": 2,
   "name": "codex-essentials",
-  "status": "authoring-source",
+  "version": "0.1.0",
+  "license": "MIT",
+  "status": "marketplace-source",
+  "pluginRoot": "plugins/codex-essentials",
+  "pluginManifest": "plugins/codex-essentials/.codex-plugin/plugin.json",
+  "marketplaceManifest": ".agents/plugins/marketplace.json",
   "routingMatrix": "routing-matrix.json",
   "skills": [
     "adversarial-check",

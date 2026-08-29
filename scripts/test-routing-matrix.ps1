@@ -30,10 +30,10 @@ function Invoke-ExpectedFailure {
 
 try {
     New-Item -ItemType Directory -Path $testRoot | Out-Null
-    foreach ($name in @('agents', 'skills', 'scripts')) {
+    foreach ($name in @('.agents', 'agents', 'plugins', 'scripts')) {
         Copy-Item -LiteralPath (Join-Path $repoRoot $name) -Destination $testRoot -Recurse
     }
-    foreach ($name in @('package-manifest.json', 'routing-matrix.json')) {
+    foreach ($name in @('LICENSE', 'package-manifest.json', 'routing-matrix.json')) {
         Copy-Item -LiteralPath (Join-Path $repoRoot $name) -Destination $testRoot
     }
 
@@ -66,7 +66,7 @@ try {
     Invoke-ExpectedFailure -Pattern 'routing-matrix.rules.automaticRouting must be a JSON boolean'
 
     Copy-Item -LiteralPath $sourceRoutingPath -Destination $routingPath -Force
-    $metadataPath = Join-Path $testRoot 'skills\self-check\agents\openai.yaml'
+    $metadataPath = Join-Path $testRoot 'plugins\codex-essentials\skills\self-check\agents\openai.yaml'
     $metadata = Get-Content -Raw -LiteralPath $metadataPath
     $metadata.Replace('allow_implicit_invocation: false', 'allow_implicit_invocation: true') |
         Set-Content -LiteralPath $metadataPath

@@ -54,10 +54,10 @@
       "skill": "grill-me",
       "kind": "interview",
       "invocation": "explicit-only",
-      "authority": "interview-only",
+      "authority": "interview-and-record-only",
       "delegation": "none",
       "agents": [],
-      "result": "One decision-dependent question at a time and a concise final decision summary",
+      "result": "One decision-dependent question at a time, a durable Markdown decision record, and a concise final decision summary",
       "stop": "The material decisions are resolved or the user stops the interview"
     },
     {

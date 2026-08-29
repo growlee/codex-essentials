@@ -1,8 +1,7 @@
 $ErrorActionPreference = 'Stop'
 
-$repoRoot = Split-Path -Parent $PSScriptRoot
+$repoRoot = [System.IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot)).TrimEnd('\')
 $manifestPath = Join-Path $repoRoot 'package-manifest.json'
-$skillsRoot = Join-Path $repoRoot 'skills'
 $agentsRoot = Join-Path $repoRoot 'agents'
 
 function Assert-JsonInteger {
@@ -31,12 +30,107 @@ function Assert-JsonBoolean {
     }
 }
 
-& (Join-Path $PSScriptRoot 'validate-skills.ps1')
-
 $manifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
 Assert-JsonInteger -Value $manifest.schemaVersion -Field 'package-manifest.schemaVersion'
 if ($manifest.schemaVersion -ne 2) {
     throw "Unsupported package manifest schemaVersion '$($manifest.schemaVersion)'"
+}
+if ([string]::IsNullOrWhiteSpace([string]$manifest.pluginRoot)) {
+    throw 'Missing pluginRoot in package-manifest.json'
+}
+if ([string]::IsNullOrWhiteSpace([string]$manifest.pluginManifest)) {
+    throw 'Missing pluginManifest in package-manifest.json'
+}
+if ([string]::IsNullOrWhiteSpace([string]$manifest.marketplaceManifest)) {
+    throw 'Missing marketplaceManifest in package-manifest.json'
+}
+if ([string]$manifest.version -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$') {
+    throw "Invalid package version '$($manifest.version)'"
+}
+
+$pluginRoot = [System.IO.Path]::GetFullPath((Join-Path $repoRoot ([string]$manifest.pluginRoot))).TrimEnd('\')
+if (-not $pluginRoot.StartsWith("$repoRoot\", [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "Plugin root escapes repository: $pluginRoot"
+}
+$skillsRoot = Join-Path $pluginRoot 'skills'
+$pluginManifestPath = [System.IO.Path]::GetFullPath((Join-Path $repoRoot ([string]$manifest.pluginManifest)))
+$marketplaceManifestPath = [System.IO.Path]::GetFullPath((Join-Path $repoRoot ([string]$manifest.marketplaceManifest)))
+foreach ($path in @($pluginManifestPath, $marketplaceManifestPath)) {
+    if (-not $path.StartsWith("$repoRoot\", [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "Manifest path escapes repository: $path"
+    }
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+        throw "Required manifest not found: $path"
+    }
+}
+if (Test-Path -LiteralPath (Join-Path $repoRoot 'skills')) {
+    throw 'Legacy root skills directory must not coexist with the plugin authoring source'
+}
+
+& (Join-Path $PSScriptRoot 'validate-skills.ps1') -SkillsRoot $skillsRoot
+
+$plugin = Get-Content -Raw -LiteralPath $pluginManifestPath | ConvertFrom-Json
+if ([string]$plugin.name -ne [string]$manifest.name) {
+    throw "Plugin name '$($plugin.name)' does not match package '$($manifest.name)'"
+}
+if ([string]$plugin.version -ne [string]$manifest.version) {
+    throw "Plugin version '$($plugin.version)' does not match package '$($manifest.version)'"
+}
+if ([string]$manifest.license -ne 'MIT') {
+    throw "Package license must be 'MIT'"
+}
+if ([string]$plugin.license -ne [string]$manifest.license) {
+    throw "Plugin license '$($plugin.license)' does not match package '$($manifest.license)'"
+}
+if (-not (Test-Path -LiteralPath (Join-Path $repoRoot 'LICENSE') -PathType Leaf)) {
+    throw 'Repository LICENSE file is missing'
+}
+if ([string]$plugin.interface.displayName -ne 'Codex Essentials') {
+    throw "Plugin display name must be 'Codex Essentials'"
+}
+foreach ($urlField in @('homepage', 'repository')) {
+    if ([string]$plugin.$urlField -ne 'https://github.com/growlee/codex-essentials') {
+        throw "Plugin $urlField must be 'https://github.com/growlee/codex-essentials'"
+    }
+}
+if ([string]$plugin.skills -ne './skills/') {
+    throw "Plugin skills path must be './skills/'"
+}
+foreach ($forbiddenField in @('agents', 'hooks', 'mcpServers', 'apps')) {
+    if ($null -ne $plugin.PSObject.Properties[$forbiddenField]) {
+        throw "Plugin manifest must not declare '$forbiddenField'"
+    }
+}
+if (@($plugin.interface.capabilities).Count -ne 0) {
+    throw 'Plugin manifest must not declare runtime capabilities'
+}
+$marketplace = Get-Content -Raw -LiteralPath $marketplaceManifestPath | ConvertFrom-Json
+if ([string]$marketplace.name -ne [string]$manifest.name) {
+    throw "Marketplace name '$($marketplace.name)' does not match package '$($manifest.name)'"
+}
+if ([string]$marketplace.interface.displayName -ne 'Codex Essentials') {
+    throw "Marketplace display name must be 'Codex Essentials'"
+}
+$marketplacePlugins = @($marketplace.plugins)
+if ($marketplacePlugins.Count -ne 1) {
+    throw 'Marketplace must contain exactly one plugin entry'
+}
+$marketplacePlugin = $marketplacePlugins[0]
+if ([string]$marketplacePlugin.name -ne [string]$manifest.name) {
+    throw "Marketplace plugin '$($marketplacePlugin.name)' does not match package '$($manifest.name)'"
+}
+if ([string]$marketplacePlugin.source.source -ne 'local' -or [string]$marketplacePlugin.source.path -ne './plugins/codex-essentials') {
+    throw 'Marketplace source must be local ./plugins/codex-essentials'
+}
+if ([string]$marketplacePlugin.policy.installation -ne 'AVAILABLE' -or [string]$marketplacePlugin.policy.authentication -ne 'ON_INSTALL') {
+    throw 'Marketplace policy must remain AVAILABLE with ON_INSTALL authentication'
+}
+
+foreach ($runtimeField in @('hooks', 'automaticRouting', 'workflowState', 'backgroundServices', 'automaticUpdates')) {
+    Assert-JsonBoolean -Value $manifest.runtime.$runtimeField -Field "package-manifest.runtime.$runtimeField"
+    if ($manifest.runtime.$runtimeField -ne $false) {
+        throw "Runtime feature '$runtimeField' must remain disabled"
+    }
 }
 
 $declaredSkills = @($manifest.skills | Sort-Object)

@@ -4,7 +4,7 @@ This repository is the authoring source for the retained Codex skills and native
 
 ## Source ownership
 
-- Edit skills only under `skills/<name>/`.
+- Edit skills only under `plugins/codex-essentials/skills/<name>/`.
 - Edit native agents only under `agents/<name>.toml`.
 - Treat copies under `C:\Users\growlee\.codex\skills` and `C:\Users\growlee\.codex\agents` as installed runtime mirrors, not authoring sources.
 - Do not edit an installed copy without making the corresponding source change here.
@@ -28,6 +28,7 @@ When adding, removing, or renaming a skill or agent:
 - Update `package-manifest.json`.
 - Update `routing-matrix.json` so every skill has one route and every agent remains classified.
 - Update `README.md`.
+- Keep `.codex-plugin/plugin.json` and `.agents/plugins/marketplace.json` aligned with the package identity and plugin path.
 - Keep skill directory names, skill frontmatter names, agent filenames, and agent `name` fields consistent.
 - Preserve the global model-routing policy; do not duplicate or independently redefine it here.
 
@@ -44,6 +45,8 @@ After changes, run:
 Also verify that:
 
 - the manifest lists exactly the skills and agents present in the repository;
+- the plugin manifest exposes exactly the packaged skills and no hooks, MCP servers, apps, or native-agent claims;
+- the marketplace entry points to `./plugins/codex-essentials` and matches the package name and versioned plugin manifest;
 - the routing matrix lists every manifest skill and agent, references only packaged agents, and preserves explicit-only invocation metadata;
 - changed runtime mirrors match their repository sources when synchronization was requested;
 - no OMX dependency, hook, workflow state, or unfinished placeholder was introduced.

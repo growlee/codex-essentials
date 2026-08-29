@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$SkillsRoot = (Join-Path $PSScriptRoot '..\skills')
+    [string]$SkillsRoot = (Join-Path $PSScriptRoot '..\plugins\codex-essentials\skills')
 )
 
 $ErrorActionPreference = 'Stop'

@@ -1,0 +1,28 @@
+{
+  "name": "codex-essentials",
+  "version": "0.1.0",
+  "license": "MIT",
+  "description": "Lean, explicit Codex skills based on selected OMX workflow ideas.",
+  "author": {
+    "name": "growlee",
+    "url": "https://github.com/growlee"
+  },
+  "homepage": "https://github.com/growlee/codex-essentials",
+  "repository": "https://github.com/growlee/codex-essentials",
+  "keywords": [
+    "codex",
+    "skills",
+    "developer-tools",
+    "omx"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Codex Essentials",
+    "shortDescription": "Lean, explicit workflows for Codex.",
+    "longDescription": "A small set of bounded Codex skills without hooks, workflow state, automatic routing, or self-repair loops.",
+    "developerName": "growlee",
+    "category": "Productivity",
+    "capabilities": [],
+    "defaultPrompt": "Help me choose and use a Codex Essentials skill."
+  }
+}

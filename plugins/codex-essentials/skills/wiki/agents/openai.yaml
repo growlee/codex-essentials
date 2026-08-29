@@ -1,0 +1,6 @@
+interface:
+  display_name: "Wiki"
+  short_description: "Read or maintain repository-local knowledge"
+  default_prompt: "Use $wiki to read or update the repository-local knowledge base for this request."
+policy:
+  allow_implicit_invocation: false
