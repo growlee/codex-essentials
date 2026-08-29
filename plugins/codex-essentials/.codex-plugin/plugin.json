@@ -1,8 +1,8 @@
 {
   "name": "codex-essentials",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "license": "MIT",
-  "description": "Lean, explicit Codex skills based on selected OMX workflow ideas.",
+  "description": "Lean Codex skills, native agents, and inspectable harness tooling based on selected OMX ideas.",
   "author": {
     "name": "growlee",
     "url": "https://github.com/growlee"

@@ -1,0 +1,14 @@
+# Minimal personal Codex configuration to pair with Codex Essentials.
+# Model availability can vary by account and Codex release.
+
+model = "gpt-5.6-terra"
+model_reasoning_effort = "medium"
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+[agents]
+enabled = true
+max_concurrent_threads_per_session = 4
+default_subagent_model = "gpt-5.6-terra"
+default_subagent_reasoning_effort = "medium"
+interrupt_message = true

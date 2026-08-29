@@ -43,6 +43,7 @@ After changes, run:
 .\scripts\test-routing-matrix.ps1
 .\scripts\test-sync-runtime.ps1
 python .\scripts\test-install-agents.py
+python .\scripts\test-audit-harness.py
 ```
 
 Also verify that:

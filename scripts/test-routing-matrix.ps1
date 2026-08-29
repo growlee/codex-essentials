@@ -30,7 +30,7 @@ function Invoke-ExpectedFailure {
 
 try {
     New-Item -ItemType Directory -Path $testRoot | Out-Null
-    foreach ($name in @('.agents', 'agents', 'plugins', 'scripts')) {
+    foreach ($name in @('.agents', 'agents', 'docs', 'plugins', 'scripts', 'templates')) {
         Copy-Item -LiteralPath (Join-Path $repoRoot $name) -Destination $testRoot -Recurse
     }
     foreach ($name in @('LICENSE', 'package-manifest.json', 'routing-matrix.json')) {

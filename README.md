@@ -3,7 +3,7 @@
 [![Validate](https://github.com/growlee/codex-essentials/actions/workflows/validate.yml/badge.svg)](https://github.com/growlee/codex-essentials/actions/workflows/validate.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Codex Essentials is a lean Codex marketplace plugin plus a companion native-agent pack. It keeps the useful task contracts and role ideas from [oh-my-codex (OMX)](https://github.com/Yeachan-Heo/oh-my-codex), but removes automatic routing, recursive repair loops, workflow state, and mandatory orchestration.
+Codex Essentials is a lean Codex marketplace plugin, companion native-agent pack, and inspectable harness toolkit. It keeps the useful task contracts and role ideas from [oh-my-codex (OMX)](https://github.com/Yeachan-Heo/oh-my-codex), but removes automatic routing, recursive repair loops, workflow state, and mandatory orchestration.
 
 ## Why
 
@@ -26,7 +26,8 @@ The result is a small package whose behavior can be inspected, tested, and insta
 | Agent design | 16 typed native-agent definitions kept separate from the plugin |
 | Routing | Declarative, non-executing skill/agent matrix |
 | Safety | No hooks, automatic routing, workflow state, or self-repair lifecycle |
-| Delivery | Package validation, routing tests, sync tests, portable agent installation, and CI |
+| Harness tooling | Sanitized templates and a read-only local inventory/drift auditor |
+| Delivery | Package validation, routing tests, sync tests, portable tooling, and CI |
 
 ## Skills
 
@@ -56,7 +57,7 @@ The plugin skills live under [`plugins/codex-essentials/skills`](plugins/codex-e
 Prerequisite: a Codex CLI build that provides `codex plugin marketplace` and `codex plugin add`.
 
 ```powershell
-codex plugin marketplace add growlee/codex-essentials --ref v0.1.0 `
+codex plugin marketplace add growlee/codex-essentials --ref v0.2.0 `
   --sparse .agents/plugins `
   --sparse plugins/codex-essentials
 
@@ -92,6 +93,25 @@ The existing PowerShell workflow remains available for users who intentionally s
 ./scripts/sync-runtime.ps1 -Mode Apply -Components Agents
 ```
 
+## Inspect a local harness
+
+The dependency-free auditor reads only the explicit skills, agents, and prompts directories plus sanitized `codex plugin list --json` metadata. It reports managed mirror drift, unmanaged inventory, exact prompt duplicates, and enabled or disabled plugin counts. It never repairs or removes anything.
+
+```bash
+python scripts/audit-harness.py
+python scripts/audit-harness.py --json
+```
+
+Use `--source-root` or `--runtime-root` for non-default locations. `--strict-mirrors` returns a non-zero exit when a directly synchronized managed mirror is changed or missing; omit it when plugin installation intentionally replaces direct skill mirrors.
+
+## Reuse the harness contract
+
+- [`templates/AGENTS.global.example.md`](templates/AGENTS.global.example.md) is a sanitized global operating-contract starting point.
+- [`templates/config.minimal.toml`](templates/config.minimal.toml) contains only a small personal Codex baseline; it deliberately omits project paths, MCP endpoints, plugins, hooks, and credentials.
+- [`docs/from-omx-to-essentials.md`](docs/from-omx-to-essentials.md) explains the design decisions behind the package.
+
+Review templates before copying them. They are examples, not an automatic installer or a replacement for project-specific contracts.
+
 ## Architecture
 
 ```text
@@ -101,8 +121,10 @@ codex-essentials/
 │  ├─ .codex-plugin/plugin.json
 │  └─ skills/
 ├─ agents/
+├─ docs/
 ├─ examples/
 ├─ scripts/
+├─ templates/
 ├─ package-manifest.json
 └─ routing-matrix.json
 ```
@@ -115,6 +137,7 @@ codex-essentials/
 |---|---|---|
 | Marketplace plugin | Codex CLI plugin commands | System plugin validator and package tests |
 | Native-agent installer | Python 3.9+ on Windows, Linux, and macOS | CI matrix using temporary runtime roots |
+| Harness auditor | Python 3.9+ on Windows, Linux, and macOS | Isolated read-only fixtures and CLI checks |
 | Full runtime sync | PowerShell 7 on Windows | Windows CI and no-prune tests |
 
 ## Validation
@@ -124,15 +147,17 @@ codex-essentials/
 ./scripts/test-routing-matrix.ps1
 ./scripts/test-sync-runtime.ps1
 python scripts/test-install-agents.py
+python scripts/test-audit-harness.py
 ```
 
-The tests verify exact skill and agent coverage, explicit-only metadata, routing boundaries, drift detection, no-prune behavior, and agents-only installation.
+The tests verify exact skill and agent coverage, explicit-only metadata, routing boundaries, drift detection, no-prune behavior, agents-only installation, sanitized plugin inventory, and auditor read-only behavior.
 
 ## Design boundaries
 
 - No hooks, automatic routing, workflow state, background services, notification dispatch, or self-repair loops.
 - Skills never launch subagents themselves.
 - Runtime synchronization is explicit and verify-first.
+- Harness auditing is read-only and performs no cleanup or repair.
 - No included skill requires the OMX CLI or runtime.
 - Installed copies are runtime mirrors; this repository remains the authoring source.
 

@@ -48,6 +48,57 @@ if ([string]$manifest.version -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+
     throw "Invalid package version '$($manifest.version)'"
 }
 
+$artifactGroups = @('templates', 'documentation', 'tools')
+foreach ($group in $artifactGroups) {
+    $entries = @($manifest.artifacts.$group)
+    if ($entries.Count -eq 0) {
+        throw "Package manifest artifacts.$group must not be empty"
+    }
+    foreach ($entry in $entries) {
+        $artifactPath = [System.IO.Path]::GetFullPath((Join-Path $repoRoot ([string]$entry)))
+        if (-not $artifactPath.StartsWith("$repoRoot\", [System.StringComparison]::OrdinalIgnoreCase)) {
+            throw "Artifact path escapes repository: $artifactPath"
+        }
+        if (-not (Test-Path -LiteralPath $artifactPath -PathType Leaf)) {
+            throw "Declared artifact not found: $entry"
+        }
+    }
+}
+
+$expectedArtifacts = @(
+    'templates/AGENTS.global.example.md',
+    'templates/config.minimal.toml',
+    'docs/from-omx-to-essentials.md',
+    'scripts/audit-harness.py',
+    'scripts/test-audit-harness.py'
+) | Sort-Object
+$declaredArtifacts = @(
+    $artifactGroups |
+        ForEach-Object { @($manifest.artifacts.$_) } |
+        ForEach-Object { [string]$_ }
+) | Sort-Object
+$artifactDifference = @(Compare-Object -ReferenceObject $expectedArtifacts -DifferenceObject $declaredArtifacts)
+if ($artifactDifference.Count -ne 0) {
+    throw "Public artifact manifest mismatch: $($artifactDifference | Out-String)"
+}
+
+$publicTemplatePaths = @(
+    'templates/AGENTS.global.example.md',
+    'templates/config.minimal.toml',
+    'docs/from-omx-to-essentials.md'
+)
+foreach ($entry in $publicTemplatePaths) {
+    $content = Get-Content -Raw -LiteralPath (Join-Path $repoRoot $entry)
+    if ($content -match '(?i)(?:[A-Z]:\\Users\\|[A-Z]:\\Projects\\|/home/[^/\s]+/|TODO|replace me)') {
+        throw "Private path or unfinished placeholder in public artifact '$entry'"
+    }
+}
+
+$minimalConfig = Get-Content -Raw -LiteralPath (Join-Path $repoRoot 'templates/config.minimal.toml')
+if ($minimalConfig -match '(?im)^\s*\[(?:mcp_servers|projects|plugins|hooks|marketplaces)(?:\.|\])') {
+    throw 'Minimal config must not include environment-specific integration tables'
+}
+
 $pluginRoot = [System.IO.Path]::GetFullPath((Join-Path $repoRoot ([string]$manifest.pluginRoot))).TrimEnd('\')
 if (-not $pluginRoot.StartsWith("$repoRoot\", [System.StringComparison]::OrdinalIgnoreCase)) {
     throw "Plugin root escapes repository: $pluginRoot"

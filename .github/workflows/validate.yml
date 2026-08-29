@@ -24,8 +24,8 @@ jobs:
         shell: pwsh
         run: ./scripts/test-sync-runtime.ps1
 
-  portable-agent-installer:
-    name: Agent installer (${{ matrix.os }}, Python ${{ matrix.python }})
+  portable-tools:
+    name: Portable tools (${{ matrix.os }}, Python ${{ matrix.python }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -44,3 +44,5 @@ jobs:
           python-version: ${{ matrix.python }}
       - name: Test portable agent installer
         run: python scripts/test-install-agents.py
+      - name: Test read-only harness auditor
+        run: python scripts/test-audit-harness.py

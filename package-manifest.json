@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "name": "codex-essentials",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "license": "MIT",
   "status": "marketplace-source",
   "pluginRoot": "plugins/codex-essentials",
@@ -39,6 +39,19 @@
     "vision",
     "writer"
   ],
+  "artifacts": {
+    "templates": [
+      "templates/AGENTS.global.example.md",
+      "templates/config.minimal.toml"
+    ],
+    "documentation": [
+      "docs/from-omx-to-essentials.md"
+    ],
+    "tools": [
+      "scripts/audit-harness.py",
+      "scripts/test-audit-harness.py"
+    ]
+  },
   "runtime": {
     "hooks": false,
     "automaticRouting": false,
