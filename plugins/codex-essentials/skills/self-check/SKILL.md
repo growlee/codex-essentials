@@ -9,6 +9,7 @@ Perform one bounded audit of the current branch of work. Determine whether the p
 
 ## Boundary
 
+- Act only through an explicit `$self-check` invocation. Catalog visibility or implicit loading is not execution authority.
 - Use the current conversation and evidence already available. Do not start new investigation, run tools, retry work, or create artifacts merely to perform this check.
 - Remain read-only. Do not fix, edit, resume, retry, delegate, invoke another skill or agent, or continue the task as part of the check.
 - Do not create workflow state, checkpoints, plans, hooks, attempt counters, or another self-check.

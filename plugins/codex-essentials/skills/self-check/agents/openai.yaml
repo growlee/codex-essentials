@@ -3,4 +3,4 @@ interface:
   short_description: "Check repetition, drift, and reopened decisions"
   default_prompt: "Use $self-check to check this work once for repetition, drift, or reopened decisions."
 policy:
-  allow_implicit_invocation: false
+  allow_implicit_invocation: true

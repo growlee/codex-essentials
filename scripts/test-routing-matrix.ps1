@@ -89,9 +89,18 @@ try {
     Copy-Item -LiteralPath $sourceRoutingPath -Destination $routingPath -Force
     $metadataPath = Join-Path $testRoot 'plugins\codex-essentials\skills\self-check\agents\openai.yaml'
     $metadata = Get-Content -Raw -LiteralPath $metadataPath
-    $metadata.Replace('allow_implicit_invocation: false', 'allow_implicit_invocation: true') |
+    $metadata.Replace('allow_implicit_invocation: true', 'allow_implicit_invocation: false') |
         Set-Content -LiteralPath $metadataPath
-    Invoke-ExpectedFailure -Pattern "does not disable implicit invocation"
+    Invoke-ExpectedFailure -Pattern "Skill 'self-check' must remain catalog-visible"
+    $metadata | Set-Content -LiteralPath $metadataPath
+
+    $selfCheckSkillPath = Join-Path $testRoot 'plugins\codex-essentials\skills\self-check\SKILL.md'
+    $sourceSelfCheckSkillPath = Join-Path $repoRoot 'plugins\codex-essentials\skills\self-check\SKILL.md'
+    $selfCheckSkill = Get-Content -Raw -LiteralPath $selfCheckSkillPath
+    $selfCheckSkill.Replace('Act only through an explicit `$self-check` invocation', 'Act through `$self-check`') |
+        Set-Content -LiteralPath $selfCheckSkillPath
+    Invoke-ExpectedFailure -Pattern 'Self-check skill contract must preserve explicit invocation authority'
+    Copy-Item -LiteralPath $sourceSelfCheckSkillPath -Destination $selfCheckSkillPath -Force
 
     $diyMetadataPath = Join-Path $testRoot 'plugins\codex-essentials\skills\diy\agents\openai.yaml'
     $diyMetadata = Get-Content -Raw -LiteralPath $diyMetadataPath
@@ -99,7 +108,7 @@ try {
         Set-Content -LiteralPath $diyMetadataPath
     Invoke-ExpectedFailure -Pattern "Skill 'diy' must remain catalog-visible"
 
-    Write-Output 'PASS routing matrix coverage, DIY contract, packaged-agent references, and invocation metadata checks'
+    Write-Output 'PASS routing matrix coverage, DIY and self-check contracts, packaged-agent references, and invocation metadata checks'
 } finally {
     if (Test-Path -LiteralPath $testRoot) {
         $resolvedTestRoot = (Resolve-Path -LiteralPath $testRoot).Path.TrimEnd('\')

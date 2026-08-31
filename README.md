@@ -58,7 +58,7 @@ The plugin skills live under [`plugins/codex-essentials/skills`](plugins/codex-e
 Prerequisite: a Codex CLI build that provides `codex plugin marketplace` and `codex plugin add`.
 
 ```powershell
-codex plugin marketplace add growlee/codex-essentials --ref v0.3.1 `
+codex plugin marketplace add growlee/codex-essentials --ref v0.3.2 `
   --sparse .agents/plugins `
   --sparse plugins/codex-essentials
 
@@ -157,6 +157,7 @@ The tests verify exact skill and agent coverage, explicit-only and catalog-visib
 
 - No hooks, automatic routing, package-owned workflow state, background services, notification dispatch, or self-repair loops.
 - `$diy` is catalog-visible so `$diy` resolves reliably, but catalog visibility is not execution authority. An explicit invocation checks material ambiguity and automatically creates one product-owned native goal unless the user explicitly requests draft-only.
+- `$self-check` is catalog-visible so explicit invocation resolves reliably, while its skill contract and routing matrix still forbid implicit execution.
 - Skills never launch subagents themselves.
 - Runtime synchronization is explicit and verify-first.
 - Harness auditing is read-only and performs no cleanup or repair.

@@ -280,8 +280,17 @@ $requiredExplicitOnlySkills = @(
     'visual-proof',
     'wiki'
 )
+$requiredCatalogVisibleExplicitOnlySkills = @('self-check')
 $requiredCatalogVisibleUserRequestedSkills = @('diy')
 $requiredDiyAuthority = 'check material ambiguity before goal-state access; after an unambiguous explicit invocation, automatically create one native goal unless the user explicitly requests draft-only'
+$selfCheckSkillPath = Join-Path $skillsRoot 'self-check\SKILL.md'
+if (-not (Test-Path -LiteralPath $selfCheckSkillPath -PathType Leaf)) {
+    throw 'Self-check skill contract is missing'
+}
+$selfCheckSkill = Get-Content -Raw -LiteralPath $selfCheckSkillPath
+if ($selfCheckSkill -notmatch 'Act only through an explicit \x60\$self-check\x60 invocation') {
+    throw 'Self-check skill contract must preserve explicit invocation authority'
+}
 $diySkillPath = Join-Path $skillsRoot 'diy\SKILL.md'
 if (-not (Test-Path -LiteralPath $diySkillPath -PathType Leaf)) {
     throw 'DIY skill contract is missing'
@@ -355,7 +364,10 @@ foreach ($route in $skillRoutes) {
             throw "Explicit-only skill '$($route.skill)' is missing agents/openai.yaml"
         }
         $metadata = Get-Content -Raw -LiteralPath $metadataPath
-        if ($metadata -notmatch '(?m)^\s*allow_implicit_invocation:\s*false\s*$') {
+        if ($route.skill -in $requiredCatalogVisibleExplicitOnlySkills -and $metadata -notmatch '(?m)^\s*allow_implicit_invocation:\s*true\s*$') {
+            throw "Skill '$($route.skill)' must remain catalog-visible"
+        }
+        if ($route.skill -notin $requiredCatalogVisibleExplicitOnlySkills -and $metadata -notmatch '(?m)^\s*allow_implicit_invocation:\s*false\s*$') {
             throw "Explicit-only skill '$($route.skill)' does not disable implicit invocation"
         }
     }
