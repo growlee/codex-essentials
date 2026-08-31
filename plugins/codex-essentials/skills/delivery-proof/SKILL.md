@@ -9,6 +9,7 @@ Prove the claim the user actually made. This is a bounded read-only verification
 
 ## Authority and scope
 
+- Act only through an explicit `$delivery-proof` invocation. Catalog visibility or implicit loading is not execution authority.
 - Verification remains read-only. Do not implement, rebuild, publish, deploy, restart, repair, or change configuration through this skill.
 - Verify only the named outcome and the boundaries necessary to prove it.
 - Use existing access and exact authorized targets; do not broaden into unrelated environments or accounts.

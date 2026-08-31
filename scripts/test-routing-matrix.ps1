@@ -99,7 +99,7 @@ try {
     $selfCheckSkill = Get-Content -Raw -LiteralPath $selfCheckSkillPath
     $selfCheckSkill.Replace('Act only through an explicit `$self-check` invocation', 'Act through `$self-check`') |
         Set-Content -LiteralPath $selfCheckSkillPath
-    Invoke-ExpectedFailure -Pattern 'Self-check skill contract must preserve explicit invocation authority'
+    Invoke-ExpectedFailure -Pattern "Skill 'self-check' must preserve explicit invocation authority"
     Copy-Item -LiteralPath $sourceSelfCheckSkillPath -Destination $selfCheckSkillPath -Force
 
     $diyMetadataPath = Join-Path $testRoot 'plugins\codex-essentials\skills\diy\agents\openai.yaml'
@@ -108,7 +108,7 @@ try {
         Set-Content -LiteralPath $diyMetadataPath
     Invoke-ExpectedFailure -Pattern "Skill 'diy' must remain catalog-visible"
 
-    Write-Output 'PASS routing matrix coverage, DIY and self-check contracts, packaged-agent references, and invocation metadata checks'
+    Write-Output 'PASS routing matrix coverage, DIY and explicit-only contracts, packaged-agent references, and catalog visibility checks'
 } finally {
     if (Test-Path -LiteralPath $testRoot) {
         $resolvedTestRoot = (Resolve-Path -LiteralPath $testRoot).Path.TrimEnd('\')

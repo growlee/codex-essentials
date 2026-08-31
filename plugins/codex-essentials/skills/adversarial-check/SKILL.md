@@ -9,6 +9,7 @@ Test the assumptions most likely to hide a serious failure. Do not turn adversar
 
 ## Authority and safety
 
+- Act only through an explicit `$adversarial-check` invocation. Catalog visibility or implicit loading is not execution authority.
 - Define the exact behavior, trust boundary, safety property, and failure cost before selecting scenarios.
 - Keep review and audit requests read-only. Do not create instrumentation, fixtures, or files unless the user also authorized local test changes.
 - Use local, disposable, synthetic, or explicitly authorized targets and data.

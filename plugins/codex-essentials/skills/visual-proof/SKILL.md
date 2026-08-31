@@ -9,6 +9,7 @@ Verify the requested visual behavior in a bounded pass. Do not turn verification
 
 ## Authority and scope
 
+- Act only through an explicit `$visual-proof` invocation. Catalog visibility or implicit loading is not execution authority.
 - Use the exact route, application, environment, reference, viewport, and state named by the user or required by the claim.
 - Verification is read-only unless the same request explicitly authorizes repair. Do not infer permission to redesign, deploy, publish, or alter live data.
 - Limit checks to requested states and transitions plus only the direct prerequisites needed to reproduce them.

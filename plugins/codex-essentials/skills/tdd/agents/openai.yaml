@@ -3,4 +3,4 @@ interface:
   short_description: "Drive one behavior through a bounded TDD cycle"
   default_prompt: "Use $tdd to implement this behavior through one bounded red-green-refactor cycle."
 policy:
-  allow_implicit_invocation: false
+  allow_implicit_invocation: true

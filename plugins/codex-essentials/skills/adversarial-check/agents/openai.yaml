@@ -3,4 +3,4 @@ interface:
   short_description: "Run bounded hostile checks against risky behavior"
   default_prompt: "Use $adversarial-check to test the riskiest behavior with a bounded hostile scenario set."
 policy:
-  allow_implicit_invocation: false
+  allow_implicit_invocation: true

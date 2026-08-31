@@ -3,4 +3,4 @@ interface:
   short_description: "Verify UI state and runtime visual behavior"
   default_prompt: "Use $visual-proof to verify the requested UI state or visual behavior."
 policy:
-  allow_implicit_invocation: false
+  allow_implicit_invocation: true

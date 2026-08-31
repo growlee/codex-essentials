@@ -9,6 +9,7 @@ Work with durable repository knowledge stored as Markdown. Do not create a workf
 
 ## Scope and authority
 
+- Act only through an explicit `$wiki` invocation or an explicit wiki operation request. Catalog visibility or implicit loading is not execution authority.
 - Use the exact wiki path named by the user. Otherwise use an existing repository-local `omx_wiki/`.
 - If no wiki exists, report that fact; do not create one unless the user requests it.
 - Search only the current repository unless the user names another repository.

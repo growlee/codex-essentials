@@ -280,16 +280,28 @@ $requiredExplicitOnlySkills = @(
     'visual-proof',
     'wiki'
 )
-$requiredCatalogVisibleExplicitOnlySkills = @('self-check')
+$requiredCatalogVisibleExplicitOnlySkills = @($requiredExplicitOnlySkills)
 $requiredCatalogVisibleUserRequestedSkills = @('diy')
 $requiredDiyAuthority = 'check material ambiguity before goal-state access; after an unambiguous explicit invocation, automatically create one native goal unless the user explicitly requests draft-only'
-$selfCheckSkillPath = Join-Path $skillsRoot 'self-check\SKILL.md'
-if (-not (Test-Path -LiteralPath $selfCheckSkillPath -PathType Leaf)) {
-    throw 'Self-check skill contract is missing'
+$requiredExplicitAuthorityPatterns = [ordered]@{
+    'adversarial-check' = 'Act only through an explicit \x60\$adversarial-check\x60 invocation'
+    'delivery-proof' = 'Act only through an explicit \x60\$delivery-proof\x60 invocation'
+    'grill-me' = 'Act only through an explicit \x60\$grill-me\x60 invocation or an explicit request to be interviewed'
+    'handoff' = 'Act only through an explicit \x60\$handoff\x60 invocation'
+    'self-check' = 'Act only through an explicit \x60\$self-check\x60 invocation'
+    'tdd' = 'Act only through an explicit \x60\$tdd\x60 invocation'
+    'visual-proof' = 'Act only through an explicit \x60\$visual-proof\x60 invocation'
+    'wiki' = 'Act only through an explicit \x60\$wiki\x60 invocation or an explicit wiki operation request'
 }
-$selfCheckSkill = Get-Content -Raw -LiteralPath $selfCheckSkillPath
-if ($selfCheckSkill -notmatch 'Act only through an explicit \x60\$self-check\x60 invocation') {
-    throw 'Self-check skill contract must preserve explicit invocation authority'
+foreach ($entry in $requiredExplicitAuthorityPatterns.GetEnumerator()) {
+    $skillPath = Join-Path $skillsRoot "$($entry.Key)\SKILL.md"
+    if (-not (Test-Path -LiteralPath $skillPath -PathType Leaf)) {
+        throw "Skill '$($entry.Key)' contract is missing"
+    }
+    $skillContract = Get-Content -Raw -LiteralPath $skillPath
+    if ($skillContract -notmatch $entry.Value) {
+        throw "Skill '$($entry.Key)' must preserve explicit invocation authority"
+    }
 }
 $diySkillPath = Join-Path $skillsRoot 'diy\SKILL.md'
 if (-not (Test-Path -LiteralPath $diySkillPath -PathType Leaf)) {

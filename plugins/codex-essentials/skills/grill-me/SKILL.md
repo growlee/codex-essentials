@@ -9,6 +9,7 @@ Resolve the decisions that materially affect the user's plan or design. Do not t
 
 ## Boundaries
 
+- Act only through an explicit `$grill-me` invocation or an explicit request to be interviewed. Catalog visibility or implicit loading is not execution authority.
 - Interview and decision-record work only; do not implement, edit project or runtime files, or start a separate planning workflow unless the user asks for that work separately.
 - Inspect the smallest relevant code or artifacts read-only when they can answer a question without asking the user.
 - Ask about user intent, priorities, constraints, and tradeoffs that cannot be discovered from evidence.

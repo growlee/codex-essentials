@@ -9,6 +9,7 @@ Write one self-contained context snapshot that lets a fresh agent continue witho
 
 ## Output boundary
 
+- Act only through an explicit `$handoff` invocation. Catalog visibility or implicit loading is not execution authority.
 - Use the exact destination requested by the user. Otherwise create a uniquely named timestamped Markdown file in the OS temporary directory.
 - Do not overwrite an existing file unless the user explicitly authorized that exact overwrite.
 - Write only the handoff document. Do not modify repository files, Git state, configuration, services, tasks, or external systems as part of this skill.

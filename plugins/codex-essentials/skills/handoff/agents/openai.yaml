@@ -3,4 +3,4 @@ interface:
   short_description: "Create a concise evidence-grounded handoff"
   default_prompt: "Use $handoff to create a bounded handoff for the next agent or task."
 policy:
-  allow_implicit_invocation: false
+  allow_implicit_invocation: true

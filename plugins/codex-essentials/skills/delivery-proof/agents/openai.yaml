@@ -3,4 +3,4 @@ interface:
   short_description: "Verify source, package, runtime, and live delivery"
   default_prompt: "Use $delivery-proof to verify the requested delivery claim with concrete evidence."
 policy:
-  allow_implicit_invocation: false
+  allow_implicit_invocation: true

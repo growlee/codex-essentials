@@ -9,6 +9,7 @@ Implement the requested behavior test-first without creating a separate planning
 
 ## Authority and boundaries
 
+- Act only through an explicit `$tdd` invocation. Catalog visibility or implicit loading is not execution authority.
 - Work only within the implementation scope already requested by the user.
 - Use the project's existing test framework, conventions, fixtures, and dependencies.
 - Run tests only against local, disposable, or explicitly authorized environments; never point a test at production or live user data by assumption.

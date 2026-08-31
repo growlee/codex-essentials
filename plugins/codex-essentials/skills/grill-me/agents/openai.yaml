@@ -3,4 +3,4 @@ interface:
   short_description: "Interview one material decision at a time"
   default_prompt: "Use $grill-me to stress-test this plan through focused decision questions."
 policy:
-  allow_implicit_invocation: false
+  allow_implicit_invocation: true
