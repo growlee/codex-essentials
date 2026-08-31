@@ -1,0 +1,6 @@
+interface:
+  display_name: "DIY"
+  short_description: "Check and start one native Codex goal"
+  default_prompt: "Use $diy for this scoped request. Check understanding, then create one native goal automatically."
+policy:
+  allow_implicit_invocation: true

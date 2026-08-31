@@ -3,7 +3,7 @@
 [![Validate](https://github.com/growlee/codex-essentials/actions/workflows/validate.yml/badge.svg)](https://github.com/growlee/codex-essentials/actions/workflows/validate.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Codex Essentials is a lean Codex marketplace plugin, companion native-agent pack, and inspectable harness toolkit. It keeps the useful task contracts and role ideas from [oh-my-codex (OMX)](https://github.com/Yeachan-Heo/oh-my-codex), but removes automatic routing, recursive repair loops, workflow state, and mandatory orchestration.
+Codex Essentials is a lean Codex marketplace plugin, companion native-agent pack, and inspectable harness toolkit. It keeps the useful task contracts and role ideas from [oh-my-codex (OMX)](https://github.com/Yeachan-Heo/oh-my-codex), but removes automatic routing, recursive repair loops, package-owned workflow state, and mandatory orchestration.
 
 ## Why
 
@@ -22,10 +22,10 @@ The result is a small package whose behavior can be inspected, tested, and insta
 | Area | Implementation |
 |---|---|
 | Codex packaging | GitHub-compatible marketplace and plugin manifests |
-| Skill design | 11 bounded skills with explicit authority and stop conditions |
+| Skill design | 12 bounded skills with explicit authority and stop conditions |
 | Agent design | 16 typed native-agent definitions kept separate from the plugin |
 | Routing | Declarative, non-executing skill/agent matrix |
-| Safety | No hooks, automatic routing, workflow state, or self-repair lifecycle |
+| Safety | No hooks, automatic routing, package-owned workflow state, or self-repair lifecycle |
 | Harness tooling | Sanitized templates and a read-only local inventory/drift auditor |
 | Delivery | Package validation, routing tests, sync tests, portable tooling, and CI |
 
@@ -35,6 +35,7 @@ The result is a small package whose behavior can be inspected, tested, and insta
 |---|---|
 | `analyze` | Trace architecture, behavior, dependencies, and change impact |
 | `diagnose` | Find the most likely root cause of a concrete failure |
+| `diy` | Check a scoped request, then create one native Codex goal on explicit invocation |
 | `self-check` | Detect repeated work or reopened settled decisions without creating a loop |
 | `grill-me` | Resolve material decisions through a focused interview and durable record |
 | `prototype` | Build a disposable experiment for one concrete question |
@@ -57,7 +58,7 @@ The plugin skills live under [`plugins/codex-essentials/skills`](plugins/codex-e
 Prerequisite: a Codex CLI build that provides `codex plugin marketplace` and `codex plugin add`.
 
 ```powershell
-codex plugin marketplace add growlee/codex-essentials --ref v0.2.0 `
+codex plugin marketplace add growlee/codex-essentials --ref v0.3.1 `
   --sparse .agents/plugins `
   --sparse plugins/codex-essentials
 
@@ -150,11 +151,12 @@ python scripts/test-install-agents.py
 python scripts/test-audit-harness.py
 ```
 
-The tests verify exact skill and agent coverage, explicit-only metadata, routing boundaries, drift detection, no-prune behavior, agents-only installation, sanitized plugin inventory, and auditor read-only behavior.
+The tests verify exact skill and agent coverage, explicit-only and catalog-visible invocation metadata, the DIY comprehension/automatic-start contract, routing boundaries, drift detection, no-prune behavior, agents-only installation, sanitized plugin inventory, and auditor read-only behavior.
 
 ## Design boundaries
 
-- No hooks, automatic routing, workflow state, background services, notification dispatch, or self-repair loops.
+- No hooks, automatic routing, package-owned workflow state, background services, notification dispatch, or self-repair loops.
+- `$diy` is catalog-visible so `$diy` resolves reliably, but catalog visibility is not execution authority. An explicit invocation checks material ambiguity and automatically creates one product-owned native goal unless the user explicitly requests draft-only.
 - Skills never launch subagents themselves.
 - Runtime synchronization is explicit and verify-first.
 - Harness auditing is read-only and performs no cleanup or repair.

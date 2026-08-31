@@ -280,6 +280,25 @@ $requiredExplicitOnlySkills = @(
     'visual-proof',
     'wiki'
 )
+$requiredCatalogVisibleUserRequestedSkills = @('diy')
+$requiredDiyAuthority = 'check material ambiguity before goal-state access; after an unambiguous explicit invocation, automatically create one native goal unless the user explicitly requests draft-only'
+$diySkillPath = Join-Path $skillsRoot 'diy\SKILL.md'
+if (-not (Test-Path -LiteralPath $diySkillPath -PathType Leaf)) {
+    throw 'DIY skill contract is missing'
+}
+$diySkill = Get-Content -Raw -LiteralPath $diySkillPath
+$requiredDiyContractPatterns = [ordered]@{
+    'comprehension gate' = '(?m)^## Comprehension gate\s*$'
+    'automatic start' = '(?m)^## Automatic start\s*$'
+    'draft-only opt-out' = '(?m)^## Draft-only opt-out\s*$'
+    'explicit invocation authority' = 'Act only through an explicit \x60\$diy\x60 invocation'
+    'single material question' = 'ask exactly one concise question'
+}
+foreach ($entry in $requiredDiyContractPatterns.GetEnumerator()) {
+    if ($diySkill -notmatch $entry.Value) {
+        throw "DIY skill contract is missing $($entry.Key)"
+    }
+}
 $referencedAgents = [System.Collections.Generic.List[string]]::new()
 
 foreach ($route in $skillRoutes) {
@@ -308,6 +327,12 @@ foreach ($route in $skillRoutes) {
     if ($route.skill -in $requiredExplicitOnlySkills -and $route.invocation -ne 'explicit-only') {
         throw "Skill '$($route.skill)' must remain explicit-only"
     }
+    if ($route.skill -in $requiredCatalogVisibleUserRequestedSkills -and $route.invocation -ne 'user-requested') {
+        throw "Skill '$($route.skill)' must remain user-requested"
+    }
+    if ($route.skill -eq 'diy' -and $route.authority -ne $requiredDiyAuthority) {
+        throw 'DIY route must preserve comprehension-gated automatic start authority'
+    }
 
     $routeAgentNames = @($routeAgents | ForEach-Object { [string]$_.name })
     $duplicateRouteAgents = @($routeAgentNames | Group-Object | Where-Object Count -gt 1)
@@ -332,6 +357,16 @@ foreach ($route in $skillRoutes) {
         $metadata = Get-Content -Raw -LiteralPath $metadataPath
         if ($metadata -notmatch '(?m)^\s*allow_implicit_invocation:\s*false\s*$') {
             throw "Explicit-only skill '$($route.skill)' does not disable implicit invocation"
+        }
+    }
+    if ($route.skill -in $requiredCatalogVisibleUserRequestedSkills) {
+        $metadataPath = Join-Path $skillsRoot "$($route.skill)\agents\openai.yaml"
+        if (-not (Test-Path -LiteralPath $metadataPath -PathType Leaf)) {
+            throw "Catalog-visible skill '$($route.skill)' is missing agents/openai.yaml"
+        }
+        $metadata = Get-Content -Raw -LiteralPath $metadataPath
+        if ($metadata -notmatch '(?m)^\s*allow_implicit_invocation:\s*true\s*$') {
+            throw "Skill '$($route.skill)' must remain catalog-visible"
         }
     }
 }

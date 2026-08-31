@@ -61,6 +61,27 @@ try {
 
     Copy-Item -LiteralPath $sourceRoutingPath -Destination $routingPath -Force
     $routing = Get-Content -Raw -LiteralPath $routingPath | ConvertFrom-Json
+    ($routing.skillRoutes | Where-Object skill -eq 'diy').invocation = 'matched-or-explicit'
+    $routing | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $routingPath
+    Invoke-ExpectedFailure -Pattern "Skill 'diy' must remain user-requested"
+
+    Copy-Item -LiteralPath $sourceRoutingPath -Destination $routingPath -Force
+    $routing = Get-Content -Raw -LiteralPath $routingPath | ConvertFrom-Json
+    ($routing.skillRoutes | Where-Object skill -eq 'diy').authority = 'draft-only'
+    $routing | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $routingPath
+    Invoke-ExpectedFailure -Pattern 'DIY route must preserve comprehension-gated automatic start authority'
+
+    Copy-Item -LiteralPath $sourceRoutingPath -Destination $routingPath -Force
+    $diySkillPath = Join-Path $testRoot 'plugins\codex-essentials\skills\diy\SKILL.md'
+    $sourceDiySkillPath = Join-Path $repoRoot 'plugins\codex-essentials\skills\diy\SKILL.md'
+    $diySkill = Get-Content -Raw -LiteralPath $diySkillPath
+    $diySkill.Replace('## Automatic start', '## Manual start') |
+        Set-Content -LiteralPath $diySkillPath
+    Invoke-ExpectedFailure -Pattern 'DIY skill contract is missing automatic start'
+    Copy-Item -LiteralPath $sourceDiySkillPath -Destination $diySkillPath -Force
+
+    Copy-Item -LiteralPath $sourceRoutingPath -Destination $routingPath -Force
+    $routing = Get-Content -Raw -LiteralPath $routingPath | ConvertFrom-Json
     $routing.rules.automaticRouting = 'false'
     $routing | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $routingPath
     Invoke-ExpectedFailure -Pattern 'routing-matrix.rules.automaticRouting must be a JSON boolean'
@@ -72,7 +93,13 @@ try {
         Set-Content -LiteralPath $metadataPath
     Invoke-ExpectedFailure -Pattern "does not disable implicit invocation"
 
-    Write-Output 'PASS routing matrix coverage, packaged-agent references, and explicit-only metadata checks'
+    $diyMetadataPath = Join-Path $testRoot 'plugins\codex-essentials\skills\diy\agents\openai.yaml'
+    $diyMetadata = Get-Content -Raw -LiteralPath $diyMetadataPath
+    $diyMetadata.Replace('allow_implicit_invocation: true', 'allow_implicit_invocation: false') |
+        Set-Content -LiteralPath $diyMetadataPath
+    Invoke-ExpectedFailure -Pattern "Skill 'diy' must remain catalog-visible"
+
+    Write-Output 'PASS routing matrix coverage, DIY contract, packaged-agent references, and invocation metadata checks'
 } finally {
     if (Test-Path -LiteralPath $testRoot) {
         $resolvedTestRoot = (Resolve-Path -LiteralPath $testRoot).Path.TrimEnd('\')

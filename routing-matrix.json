@@ -61,6 +61,18 @@
       "stop": "The material decisions are resolved or the user stops the interview"
     },
     {
+      "id": "user-requested-native-goal",
+      "taskShape": "The user explicitly invokes $diy to turn one scoped request into a native Codex goal, or explicitly requests a draft-only objective",
+      "skill": "diy",
+      "kind": "goal",
+      "invocation": "user-requested",
+      "authority": "check material ambiguity before goal-state access; after an unambiguous explicit invocation, automatically create one native goal unless the user explicitly requests draft-only",
+      "delegation": "none",
+      "agents": [],
+      "result": "One clarification question plus BLOCKED, or the exact objective plus DRAFT or CREATED",
+      "stop": "A material question is returned, an explicit draft is returned, or one native goal is created; no package-owned continuation or retry follows"
+    },
+    {
       "id": "throwaway-prototype",
       "taskShape": "The user requests a disposable runnable experiment for one uncertain product, logic, state, or UI question",
       "skill": "prototype",
