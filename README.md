@@ -61,14 +61,14 @@ The plugin skills live under [`plugins/codex-essentials/skills`](plugins/codex-e
 Prerequisite: a Codex CLI build that provides `codex plugin marketplace` and `codex plugin add`.
 
 ```powershell
-codex plugin marketplace add growlee/codex-essentials --ref v0.4.1 `
+codex plugin marketplace add growlee/codex-essentials --ref main `
   --sparse .agents/plugins `
   --sparse plugins/codex-essentials
 
 codex plugin add codex-essentials@codex-essentials
 ```
 
-Start a new Codex task after installation so the skill catalog is reloaded.
+This installs the published `main` branch, not unpublished local changes. For a reproducible installation, replace `main` with a verified published commit SHA or tag; the package version is not a promise that a matching Git tag exists. Start a new Codex task after installation so the skill catalog is reloaded.
 
 ## Install the native agents
 
@@ -90,23 +90,29 @@ python scripts/install-agents.py --mode apply --replace-changed
 
 Each replaced definition is preserved beside it as `<name>.toml.bak`. The installer refuses to overwrite an existing backup.
 
+`explore-luna` is a standalone fallback definition. If an older installation also registers this file as `[agents.explore_luna]` in `config.toml`, review that legacy alias before migrating; the file's canonical name is `explore-luna`. The installer does not rewrite configuration or remove aliases.
+
 The existing PowerShell workflow remains available for users who intentionally synchronize skills, agents, or both:
 
 ```powershell
 ./scripts/sync-runtime.ps1 -Mode Verify -Components Agents
 ./scripts/sync-runtime.ps1 -Mode Apply -Components Agents
+# Only after inspecting changed definitions:
+./scripts/sync-runtime.ps1 -Mode Apply -Components Agents -ReplaceChanged
 ```
+
+Both installers reject linked/reparse-point destinations and overlapping source/runtime roots. Changed managed files are preserved by default. Explicit replacement makes a non-overwritten `.bak` copy first; unrelated files are never pruned.
 
 ## Inspect a local harness
 
-The dependency-free auditor reads only the explicit skills, agents, and prompts directories plus sanitized `codex plugin list --json` metadata. It reports managed mirror drift, unmanaged inventory, exact prompt duplicates, and enabled or disabled plugin counts. It never repairs or removes anything.
+The dependency-free auditor reads the selected runtime's skills, agents, and prompts directories plus sanitized `codex plugin list --json` metadata and the managed plugin's versioned cache. It reports direct mirrors separately from plugin installation/cache status, unmanaged inventory, exact prompt duplicates, and enabled or disabled plugin counts. Linked or unreadable paths are reported as unsafe, not matching mirrors. It never repairs or removes anything.
 
 ```bash
 python scripts/audit-harness.py
 python scripts/audit-harness.py --json
 ```
 
-Use `--source-root` or `--runtime-root` for non-default locations. `--strict-mirrors` returns a non-zero exit when a directly synchronized managed mirror is changed or missing; omit it when plugin installation intentionally replaces direct skill mirrors.
+Use `--source-root` or `--runtime-root` for non-default locations; plugin inventory uses that same runtime root. `--strict-mirrors` returns a non-zero exit when a directly synchronized managed mirror is changed, missing, or unsafe; omit it when plugin installation intentionally replaces direct skill mirrors. Missing direct copies do not imply missing plugin skills. An enabled registry entry and matching cache prove installation bytes, not that an already running task has reloaded its catalog. `--skip-plugins` skips registry/cache inspection entirely.
 
 ## Reuse the harness contract
 
@@ -142,7 +148,7 @@ codex-essentials/
 | Marketplace plugin | Codex CLI plugin commands | System plugin validator and package tests |
 | Native-agent installer | Python 3.9+ on Windows, Linux, and macOS | CI matrix using temporary runtime roots |
 | Harness auditor | Python 3.9+ on Windows, Linux, and macOS | Isolated read-only fixtures and CLI checks |
-| Full runtime sync | PowerShell 7 on Windows | Windows CI and no-prune tests |
+| Full runtime sync / package validation | PowerShell 7 on Windows and Python 3.11+ | Standard-library TOML parsing, Windows path-safety and no-prune tests |
 
 ## Validation
 
@@ -154,13 +160,13 @@ python scripts/test-install-agents.py
 python scripts/test-audit-harness.py
 ```
 
-The tests verify exact skill and agent coverage, explicit-only and catalog-visible invocation metadata, the DIY comprehension/automatic-start contract, routing boundaries, drift detection, no-prune behavior, agents-only installation, sanitized plugin inventory, and auditor read-only behavior.
+The tests verify exact skill and agent coverage, standalone TOML syntax and required fields, invocation compatibility metadata, machine-readable routing boundaries, path containment, drift detection, protected replacement, no-prune behavior, agents-only installation, sanitized plugin inventory, and auditor read-only behavior. Prose authority and stop semantics still require reading the changed contracts; matching a sentence or heading does not prove behavior.
 
 ## Design boundaries
 
 - No hooks, automatic routing, package-owned workflow state, background services, notification dispatch, or self-repair loops.
-- `$diy` is catalog-visible so `$diy` resolves reliably, but catalog visibility is not execution authority. An explicit invocation checks material ambiguity and automatically creates one product-owned native goal unless the user explicitly requests draft-only.
-- All explicit-only skills are catalog-visible so `$skill-name` resolves reliably, while their skill contracts and routing matrix still forbid implicit execution.
+- An explicit `$diy` invocation checks material ambiguity and automatically creates one product-owned native goal unless the user explicitly requests draft-only. Loading its metadata is not execution authority.
+- Explicit-only skills currently retain `allow_implicit_invocation: true` as an installed-client compatibility choice, not as a claim that the flag controls UI visibility. Their contracts still require explicit authority. A switch to `false` requires a successful explicit-call check in the target client; static metadata validation alone does not prove app behavior.
 - Skills never launch subagents themselves.
 - Runtime synchronization is explicit and verify-first.
 - Harness auditing is read-only and performs no cleanup or repair.

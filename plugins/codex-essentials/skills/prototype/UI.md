@@ -4,17 +4,17 @@ Use this branch when the uncertainty is layout, information hierarchy, interacti
 
 ## Shape
 
-Build a small set of meaningfully different variants that the user can compare in one local surface.
+Build one prototype by default. Create multiple variants only when the user's question calls for comparing alternatives.
 
 - Reuse the project's existing framework, component library, styling system, and representative read-only data where practical.
 - Prefer an isolated prototype route or clearly gated local surface.
 - Modify an existing page only when evaluating the design in its real context is important and the prototype remains safely gated from production users.
-- Variants must differ in structure, hierarchy, or primary interaction—not only color or copy.
-- Create only enough variants to expose the real tradeoff; three is a useful default, not a requirement.
+- When comparison is needed, make variants differ in the aspect being tested, such as structure, hierarchy, or primary interaction.
+- Create only enough variants to expose that tradeoff; there is no fixed count.
 
 ## Switching
 
-Make variants easy to compare from one URL or screen.
+When there are multiple variants, make them easy to compare from one URL or screen. A single prototype needs no switcher.
 
 - Use a query parameter, local control, or another simple project-native mechanism.
 - Keep the selected variant reload-stable when practical.
@@ -31,6 +31,6 @@ Make variants easy to compare from one URL or screen.
 
 ## Verification
 
-Run the local surface and confirm that every variant renders and switching works. Check the viewport or interaction that materially affects the decision; do not turn the prototype into a full production QA cycle.
+Run the local surface and confirm that the prototype renders and its primary interaction works; check switching only when variants exist. Check the viewport or interaction that materially affects the decision; do not turn the prototype into a full production QA cycle.
 
-Hand over the URL, variant names, question being tested, and known shortcuts. Choosing a winner, cleaning up variants, or integrating production code is separate work.
+Hand over the URL, question being tested, known shortcuts, and variant names when applicable. Choosing a winner, cleaning up variants, or integrating production code is separate work.

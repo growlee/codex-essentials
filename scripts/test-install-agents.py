@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
 import subprocess
 import sys
 import tempfile
@@ -36,7 +37,7 @@ class InstallAgentsTests(unittest.TestCase):
 
     def test_verify_apply_repair_and_no_prune(self) -> None:
         with tempfile.TemporaryDirectory(prefix="codex-essentials-agents-") as root:
-            runtime_root = Path(root) / "runtime"
+            runtime_root = Path(root).resolve() / "runtime"
 
             missing = self.run_installer(runtime_root, "verify")
             self.assertEqual(missing.returncode, 1, missing.stdout + missing.stderr)
@@ -80,9 +81,60 @@ class InstallAgentsTests(unittest.TestCase):
             self.assertTrue(extra.is_file(), "Apply must not prune unmanaged runtime files")
 
     def test_rejects_repository_overlap(self) -> None:
-        result = self.run_installer(REPO_ROOT, "apply")
-        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
-        self.assertIn("runtime root overlaps the authoring repository", result.stderr)
+        for runtime_root in (REPO_ROOT, REPO_ROOT / "runtime-test", REPO_ROOT.parent):
+            with self.subTest(runtime_root=runtime_root):
+                result = self.run_installer(runtime_root, "apply")
+                self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                self.assertIn(
+                    "runtime root overlaps the authoring repository", result.stderr
+                )
+
+    @unittest.skipUnless(os.name == "nt", "Windows junction behavior")
+    def test_rejects_junction_destination_without_writing_outside(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="codex-essentials-junction-") as root:
+            base = Path(root).resolve()
+            runtime_root = base / "runtime"
+            outside = base / "outside"
+            runtime_root.mkdir()
+            outside.mkdir()
+            sentinel = outside / "sentinel.txt"
+            sentinel.write_text("unchanged", encoding="utf-8")
+            junction = runtime_root / "agents"
+            created = subprocess.run(
+                ["cmd", "/c", "mklink", "/J", str(junction), str(outside)],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(created.returncode, 0, created.stdout + created.stderr)
+
+            result = self.run_installer(runtime_root, "apply")
+            self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+            self.assertIn("reparse point", result.stderr)
+            self.assertEqual(sentinel.read_text(encoding="utf-8"), "unchanged")
+            self.assertEqual(list(outside.iterdir()), [sentinel])
+
+    def test_backup_collision_is_preflighted_before_missing_files_are_written(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="codex-essentials-preflight-") as root:
+            runtime_root = Path(root).resolve() / "runtime"
+            agents_root = runtime_root / "agents"
+            agents_root.mkdir(parents=True)
+            analyst = agents_root / "analyst.toml"
+            analyst.write_text("intentional drift\n", encoding="utf-8")
+            backup = analyst.with_suffix(".toml.bak")
+            backup.write_text("existing backup\n", encoding="utf-8")
+
+            result = self.run_installer(
+                runtime_root, "apply", "--replace-changed"
+            )
+            self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+            self.assertIn("refusing to overwrite existing backup", result.stderr)
+            self.assertEqual(analyst.read_text(encoding="utf-8"), "intentional drift\n")
+            self.assertEqual(backup.read_text(encoding="utf-8"), "existing backup\n")
+            self.assertFalse(
+                (agents_root / "architect.toml").exists(),
+                "Preflight failure must happen before any missing agent is installed",
+            )
 
 
 if __name__ == "__main__":

@@ -20,8 +20,8 @@
           "when": "One bounded current-repository lookup materially improves the evidence"
         },
         {
-          "name": "critic",
-          "when": "A material reasoning dispute remains after the first evidence-backed conclusion"
+          "name": "architect",
+          "when": "A concrete system-boundary, interface, or ownership question materially affects the conclusion"
         }
       ],
       "result": "Conclusion with evidence separated from inference and unresolved unknowns",
@@ -102,7 +102,7 @@
           "when": "Reference-image or screenshot interpretation is necessary"
         }
       ],
-      "result": "Runnable prototype, run command, observed answer, and keep-or-delete decision",
+      "result": "Runnable prototype, run command, observed answer, and known prototype gaps",
       "stop": "The named prototype question is answered"
     },
     {
@@ -199,7 +199,7 @@
           "when": "The material risk is a system or trust-boundary decision"
         }
       ],
-      "result": "Verdicts for three to seven risk-relevant scenarios plus the normal-path baseline",
+      "result": "Verdicts for the selected risk-relevant scenarios; include a normal-path baseline only when needed to interpret the results",
       "stop": "Every selected risk has a verdict or one concrete blocker"
     },
     {
@@ -268,10 +268,10 @@
     },
     {
       "name": "critic",
-      "classification": "routed",
-      "useWhen": "A material plan, reasoning, operational, or rollback risk remains disputed",
+      "classification": "standalone",
+      "useWhen": "A concrete plan or operational/rollback candidate needs independent review",
       "avoid": "Automatic second opinions or unchanged review repeats",
-      "returns": "Concrete challenge and safer correction"
+      "returns": "Requested verdict with material plan or operational findings and necessary corrections"
     },
     {
       "name": "debugger",

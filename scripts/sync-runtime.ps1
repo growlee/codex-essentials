@@ -6,6 +6,8 @@ param(
     [ValidateSet('All', 'Skills', 'Agents')]
     [string]$Components = 'All',
 
+    [switch]$ReplaceChanged,
+
     [string]$RuntimeRoot = $(
         if ($env:CODEX_HOME) {
             $env:CODEX_HOME
@@ -23,15 +25,69 @@ $repoRoot = [System.IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot)).Tr
 $resolvedRuntimeRoot = [System.IO.Path]::GetFullPath($RuntimeRoot).TrimEnd('\')
 $pathRoot = [System.IO.Path]::GetPathRoot($resolvedRuntimeRoot).TrimEnd('\')
 
+function Assert-NoReparsePoint {
+    param([Parameter(Mandatory)][string]$Path)
+
+    $candidate = [System.IO.Path]::GetFullPath($Path)
+    while ($candidate) {
+        try {
+            $attributes = [System.IO.File]::GetAttributes($candidate)
+        } catch [System.IO.FileNotFoundException], [System.IO.DirectoryNotFoundException] {
+            $attributes = $null
+        }
+        if ($null -ne $attributes -and ($attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "Runtime path must not traverse a reparse point: $candidate"
+        }
+        $parent = [System.IO.Directory]::GetParent($candidate)
+        if ($null -eq $parent) {
+            break
+        }
+        $candidate = $parent.FullName
+    }
+}
+
+function Assert-SafeDestination {
+    param([Parameter(Mandatory)][string]$Path)
+
+    $candidate = [System.IO.Path]::GetFullPath($Path)
+    if (
+        $candidate -ne $resolvedRuntimeRoot -and
+        -not $candidate.StartsWith("$resolvedRuntimeRoot\", [System.StringComparison]::OrdinalIgnoreCase)
+    ) {
+        throw "Destination escapes runtime root: $candidate"
+    }
+    Assert-NoReparsePoint -Path $candidate
+
+    $ancestor = [System.IO.Directory]::GetParent($candidate)
+    while ($null -ne $ancestor) {
+        $ancestorPath = $ancestor.FullName
+        if (
+            $ancestorPath -ne $resolvedRuntimeRoot -and
+            -not $ancestorPath.StartsWith("$resolvedRuntimeRoot\", [System.StringComparison]::OrdinalIgnoreCase)
+        ) {
+            break
+        }
+        if ((Test-Path -LiteralPath $ancestorPath) -and -not (Test-Path -LiteralPath $ancestorPath -PathType Container)) {
+            throw "Destination ancestor must be a directory: $ancestorPath"
+        }
+        if ($ancestorPath -eq $resolvedRuntimeRoot) {
+            break
+        }
+        $ancestor = $ancestor.Parent
+    }
+}
+
 if (-not $resolvedRuntimeRoot -or $resolvedRuntimeRoot -eq $pathRoot) {
     throw "Unsafe runtime root: $resolvedRuntimeRoot"
 }
 if (
     $resolvedRuntimeRoot -eq $repoRoot -or
-    $repoRoot.StartsWith("$resolvedRuntimeRoot\", [System.StringComparison]::OrdinalIgnoreCase)
+    $repoRoot.StartsWith("$resolvedRuntimeRoot\", [System.StringComparison]::OrdinalIgnoreCase) -or
+    $resolvedRuntimeRoot.StartsWith("$repoRoot\", [System.StringComparison]::OrdinalIgnoreCase)
 ) {
-    throw "Runtime root cannot contain the authoring repository: $resolvedRuntimeRoot"
+    throw "Runtime root overlaps the authoring repository: $resolvedRuntimeRoot"
 }
+Assert-NoReparsePoint -Path $resolvedRuntimeRoot
 
 $manifestPath = Join-Path $repoRoot 'package-manifest.json'
 & (Join-Path $PSScriptRoot 'validate-package.ps1')
@@ -53,7 +109,10 @@ if ($syncAgents) {
 $componentSummary = $summaryParts -join ', '
 
 function Get-RelativeFileMap {
-    param([Parameter(Mandatory)][string]$Root)
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [switch]$RuntimeDestination
+    )
 
     $map = @{}
     if (-not (Test-Path -LiteralPath $Root -PathType Container)) {
@@ -61,12 +120,29 @@ function Get-RelativeFileMap {
     }
 
     $normalizedRoot = [System.IO.Path]::GetFullPath($Root).TrimEnd('\')
-    foreach ($file in Get-ChildItem -LiteralPath $normalizedRoot -Recurse -Force -File) {
-        $relativePath = $file.FullName.Substring($normalizedRoot.Length).TrimStart('\')
-        if ($relativePath -match '(^|\\)__pycache__(\\|$)' -or $relativePath -match '\.pyc$') {
-            continue
+    if ($RuntimeDestination) {
+        Assert-SafeDestination -Path $normalizedRoot
+    } else {
+        Assert-NoReparsePoint -Path $normalizedRoot
+    }
+    $pending = [System.Collections.Generic.Stack[string]]::new()
+    $pending.Push($normalizedRoot)
+    while ($pending.Count -gt 0) {
+        $directory = $pending.Pop()
+        foreach ($item in Get-ChildItem -LiteralPath $directory -Force) {
+            if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+                throw "Managed path must not contain a reparse point: $($item.FullName)"
+            }
+            if ($item.PSIsContainer) {
+                $pending.Push($item.FullName)
+                continue
+            }
+            $relativePath = $item.FullName.Substring($normalizedRoot.Length).TrimStart('\')
+            if ($relativePath -match '(^|\\)__pycache__(\\|$)' -or $relativePath -match '\.pyc$') {
+                continue
+            }
+            $map[$relativePath] = $item.FullName
         }
-        $map[$relativePath] = $file.FullName
     }
     return $map
 }
@@ -79,7 +155,12 @@ function Get-ManagedDrift {
             $sourceRoot = Join-Path $sourceSkillsRoot $skillName
             $destinationRoot = Join-Path $runtimeSkillsRoot $skillName
             $sourceFiles = Get-RelativeFileMap -Root $sourceRoot
-            $destinationFiles = Get-RelativeFileMap -Root $destinationRoot
+            Assert-SafeDestination -Path $destinationRoot
+            $destinationFiles = Get-RelativeFileMap -Root $destinationRoot -RuntimeDestination
+
+            foreach ($relativePath in $sourceFiles.Keys) {
+                [void]$destinationFiles.Remove("$relativePath.bak")
+            }
 
             foreach ($relativePath in $sourceFiles.Keys) {
                 if (-not $destinationFiles.ContainsKey($relativePath)) {
@@ -106,7 +187,11 @@ function Get-ManagedDrift {
         foreach ($agentName in $manifest.agents) {
             $sourcePath = Join-Path $sourceAgentsRoot "$agentName.toml"
             $destinationPath = Join-Path $runtimeAgentsRoot "$agentName.toml"
+            Assert-SafeDestination -Path $destinationPath
             if (-not (Test-Path -LiteralPath $destinationPath -PathType Leaf)) {
+                if (Test-Path -LiteralPath $destinationPath) {
+                    throw "Agent destination must be a regular file: $destinationPath"
+                }
                 $drift.Add("MISSING agent/$agentName.toml")
                 continue
             }
@@ -122,29 +207,81 @@ function Get-ManagedDrift {
     return @($drift)
 }
 
-function Copy-ManagedFiles {
+function Add-CopyPlanEntry {
+    param(
+        [Parameter(Mandatory)][string]$Source,
+        [Parameter(Mandatory)][string]$Destination
+    )
+
+    Assert-SafeDestination -Path $Destination
+    $changed = Test-Path -LiteralPath $Destination -PathType Leaf
+    if ($changed) {
+        $sourceHash = (Get-FileHash -LiteralPath $Source -Algorithm SHA256).Hash
+        $destinationHash = (Get-FileHash -LiteralPath $Destination -Algorithm SHA256).Hash
+        if ($sourceHash -eq $destinationHash -or -not $ReplaceChanged) {
+            return
+        }
+    } elseif (Test-Path -LiteralPath $Destination) {
+        throw "Managed destination must be a regular file: $Destination"
+    }
+
+    $backupPath = if ($changed) { "$Destination.bak" } else { $null }
+    if ($backupPath) {
+        Assert-SafeDestination -Path $backupPath
+        if (Test-Path -LiteralPath $backupPath) {
+            throw "Refusing to overwrite existing backup: $backupPath"
+        }
+    }
+    $temporaryPath = Join-Path (Split-Path -Parent $Destination) ".$(Split-Path -Leaf $Destination).codex-essentials-$PID.tmp"
+    Assert-SafeDestination -Path $temporaryPath
+    if (Test-Path -LiteralPath $temporaryPath) {
+        throw "Temporary destination already exists: $temporaryPath"
+    }
+    return [pscustomobject]@{
+        Source = $Source
+        Destination = $Destination
+        Backup = $backupPath
+        Temporary = $temporaryPath
+    }
+}
+
+function Get-CopyPlan {
+    $plan = [System.Collections.Generic.List[object]]::new()
     if ($syncSkills) {
-        New-Item -ItemType Directory -Path $runtimeSkillsRoot -Force | Out-Null
         foreach ($skillName in $manifest.skills) {
             $sourceRoot = Join-Path $sourceSkillsRoot $skillName
             $destinationRoot = Join-Path $runtimeSkillsRoot $skillName
             $sourceFiles = Get-RelativeFileMap -Root $sourceRoot
-
             foreach ($relativePath in $sourceFiles.Keys) {
-                $destinationPath = Join-Path $destinationRoot $relativePath
-                $destinationDirectory = Split-Path -Parent $destinationPath
-                New-Item -ItemType Directory -Path $destinationDirectory -Force | Out-Null
-                Copy-Item -LiteralPath $sourceFiles[$relativePath] -Destination $destinationPath -Force
+                $entry = Add-CopyPlanEntry -Source $sourceFiles[$relativePath] -Destination (Join-Path $destinationRoot $relativePath)
+                if ($null -ne $entry) { $plan.Add($entry) }
             }
         }
     }
-
     if ($syncAgents) {
-        New-Item -ItemType Directory -Path $runtimeAgentsRoot -Force | Out-Null
         foreach ($agentName in $manifest.agents) {
-            $sourcePath = Join-Path $sourceAgentsRoot "$agentName.toml"
-            $destinationPath = Join-Path $runtimeAgentsRoot "$agentName.toml"
-            Copy-Item -LiteralPath $sourcePath -Destination $destinationPath -Force
+            $entry = Add-CopyPlanEntry -Source (Join-Path $sourceAgentsRoot "$agentName.toml") -Destination (Join-Path $runtimeAgentsRoot "$agentName.toml")
+            if ($null -ne $entry) { $plan.Add($entry) }
+        }
+    }
+    return @($plan)
+}
+
+function Copy-ManagedFiles {
+    param([Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Plan)
+
+    foreach ($item in $Plan) {
+        New-Item -ItemType Directory -Path (Split-Path -Parent $item.Destination) -Force | Out-Null
+        if ($item.Backup) {
+            Copy-Item -LiteralPath $item.Destination -Destination $item.Backup
+        }
+        try {
+            Copy-Item -LiteralPath $item.Source -Destination $item.Temporary
+            Move-Item -LiteralPath $item.Temporary -Destination $item.Destination -Force
+        } finally {
+            if (Test-Path -LiteralPath $item.Temporary) {
+                Remove-Item -LiteralPath $item.Temporary -Force
+            }
         }
     }
 }
@@ -161,10 +298,14 @@ if ($Mode -eq 'Verify') {
     throw "Runtime drift detected: $($initialDrift.Count) difference(s)"
 }
 
-Copy-ManagedFiles
+$copyPlan = @(Get-CopyPlan)
+Copy-ManagedFiles -Plan $copyPlan
 $remainingDrift = @(Get-ManagedDrift)
 if ($remainingDrift.Count -ne 0) {
     $remainingDrift | ForEach-Object { Write-Output "DRIFT $_" }
+    if (-not $ReplaceChanged -and ($remainingDrift | Where-Object { $_ -like 'CHANGED *' })) {
+        Write-Warning 'Changed managed files were preserved; inspect them and rerun with -ReplaceChanged to create .bak files and replace them.'
+    }
     throw "Runtime drift detected after Apply: $($remainingDrift.Count) difference(s); unmanaged files were not pruned"
 }
 

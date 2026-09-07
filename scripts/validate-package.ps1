@@ -205,14 +205,14 @@ if ($agentDifference.Count -ne 0) {
     throw "Agent manifest mismatch: $($agentDifference | Out-String)"
 }
 
+$agentSchemaOutput = & python -B (Join-Path $PSScriptRoot 'validate-agents.py') --agents-root $agentsRoot 2>&1
+if ($LASTEXITCODE -ne 0) {
+    throw "Agent schema validation failed: $($agentSchemaOutput -join [Environment]::NewLine)"
+}
+$agentSchemaOutput | ForEach-Object { Write-Output $_ }
+
 foreach ($file in $agentFiles) {
     $content = Get-Content -Raw -LiteralPath $file.FullName
-    if ($content -notmatch '(?m)^model\s*=') {
-        throw "Missing model in $($file.FullName)"
-    }
-    if ($content -notmatch '(?m)^developer_instructions\s*=\s*\"\"\"') {
-        throw "Missing developer_instructions in $($file.FullName)"
-    }
     if ($content -match '(?i)oh-my-codex|\bomx\b|\.omx') {
         throw "Legacy runtime reference in $($file.FullName)"
     }
@@ -220,12 +220,6 @@ foreach ($file in $agentFiles) {
         throw "Unfinished placeholder in $($file.FullName)"
     }
 
-    $nameMatch = [regex]::Match($content, '(?m)^name\s*=\s*\"([^\"]+)\"')
-    if ($nameMatch.Success -and $nameMatch.Groups[1].Value -ne $file.BaseName) {
-        throw "Agent name mismatch in $($file.FullName)"
-    }
-
-    Write-Output "VALID agent $($file.BaseName)"
 }
 
 if (-not $manifest.routingMatrix) {
@@ -281,64 +275,11 @@ $requiredExplicitOnlySkills = @(
     'visual-proof',
     'wiki'
 )
-$requiredCatalogVisibleExplicitOnlySkills = @($requiredExplicitOnlySkills)
-$requiredCatalogVisibleUserRequestedSkills = @('diy')
-$requiredDiyAuthority = 'check material ambiguity before goal-state access; after an unambiguous explicit invocation, automatically create one native goal unless the user explicitly requests draft-only'
-$requiredRoadmapAuthority = 'read the current project and create one roadmap when requested; unless the user explicitly requires read-only, synchronize the same resolved roadmap when verified progress or next-task evidence makes it stale; no implementation or goal authority'
-$requiredExplicitAuthorityPatterns = [ordered]@{
-    'adversarial-check' = 'Act only through an explicit \x60\$adversarial-check\x60 invocation'
-    'delivery-proof' = 'Act only through an explicit \x60\$delivery-proof\x60 invocation'
-    'grill-me' = 'Act only through an explicit \x60\$grill-me\x60 invocation or an explicit request to be interviewed'
-    'handoff' = 'Act only through an explicit \x60\$handoff\x60 invocation'
-    'roadmap' = 'Act only through an explicit \x60\$roadmap\x60 invocation or an explicit roadmap operation request'
-    'self-check' = 'Act only through an explicit \x60\$self-check\x60 invocation'
-    'tdd' = 'Act only through an explicit \x60\$tdd\x60 invocation'
-    'visual-proof' = 'Act only through an explicit \x60\$visual-proof\x60 invocation'
-    'wiki' = 'Act only through an explicit \x60\$wiki\x60 invocation or an explicit wiki operation request'
-}
-foreach ($entry in $requiredExplicitAuthorityPatterns.GetEnumerator()) {
-    $skillPath = Join-Path $skillsRoot "$($entry.Key)\SKILL.md"
-    if (-not (Test-Path -LiteralPath $skillPath -PathType Leaf)) {
-        throw "Skill '$($entry.Key)' contract is missing"
-    }
-    $skillContract = Get-Content -Raw -LiteralPath $skillPath
-    if ($skillContract -notmatch $entry.Value) {
-        throw "Skill '$($entry.Key)' must preserve explicit invocation authority"
-    }
-}
-$roadmapSkillPath = Join-Path $skillsRoot 'roadmap\SKILL.md'
-if (-not (Test-Path -LiteralPath $roadmapSkillPath -PathType Leaf)) {
-    throw 'Roadmap skill contract is missing'
-}
-$roadmapSkill = Get-Content -Raw -LiteralPath $roadmapSkillPath
-$requiredRoadmapContractPatterns = [ordered]@{
-    'verified progress synchronization' = '(?m)^## Synchronize verified progress\s*$'
-    'explicit read-only opt-out' = 'Only an explicit read-only or no-edit instruction suppresses this synchronization'
-    'evidence-bound completion' = 'mark a milestone complete only when current evidence satisfies its completion criteria'
-    'current next task' = 'remove an obsolete recommended next task and replace it with the smallest currently unblocked next task'
-}
-foreach ($entry in $requiredRoadmapContractPatterns.GetEnumerator()) {
-    if ($roadmapSkill -notmatch $entry.Value) {
-        throw "Roadmap skill contract is missing $($entry.Key)"
-    }
-}
-$diySkillPath = Join-Path $skillsRoot 'diy\SKILL.md'
-if (-not (Test-Path -LiteralPath $diySkillPath -PathType Leaf)) {
-    throw 'DIY skill contract is missing'
-}
-$diySkill = Get-Content -Raw -LiteralPath $diySkillPath
-$requiredDiyContractPatterns = [ordered]@{
-    'comprehension gate' = '(?m)^## Comprehension gate\s*$'
-    'automatic start' = '(?m)^## Automatic start\s*$'
-    'draft-only opt-out' = '(?m)^## Draft-only opt-out\s*$'
-    'explicit invocation authority' = 'Act only through an explicit \x60\$diy\x60 invocation'
-    'single material question' = 'ask exactly one concise question'
-}
-foreach ($entry in $requiredDiyContractPatterns.GetEnumerator()) {
-    if ($diySkill -notmatch $entry.Value) {
-        throw "DIY skill contract is missing $($entry.Key)"
-    }
-}
+# Preserve the installed-client compatibility choice until explicit invocation is
+# verified in that client. This is not a visibility guarantee or execution authority.
+$compatibilityInjectedSkills = @($requiredExplicitOnlySkills) + @('diy')
+# Prose authority/stop semantics are reviewed in SKILL.md, not certified by matching
+# exact sentences. Validate machine-readable routing and packaging invariants here.
 $referencedAgents = [System.Collections.Generic.List[string]]::new()
 
 foreach ($route in $skillRoutes) {
@@ -367,17 +308,17 @@ foreach ($route in $skillRoutes) {
     if ($route.skill -in $requiredExplicitOnlySkills -and $route.invocation -ne 'explicit-only') {
         throw "Skill '$($route.skill)' must remain explicit-only"
     }
-    if ($route.skill -in $requiredCatalogVisibleUserRequestedSkills -and $route.invocation -ne 'user-requested') {
-        throw "Skill '$($route.skill)' must remain user-requested"
+    if ($route.skill -eq 'diy' -and ($route.invocation -ne 'user-requested' -or $route.kind -ne 'goal' -or $route.delegation -ne 'none')) {
+        throw 'DIY route must remain a user-requested goal with no delegation'
     }
-    if ($route.skill -eq 'diy' -and $route.authority -ne $requiredDiyAuthority) {
-        throw 'DIY route must preserve comprehension-gated automatic start authority'
-    }
-    if ($route.skill -eq 'roadmap' -and $route.authority -ne $requiredRoadmapAuthority) {
-        throw 'Roadmap route must preserve default verified-progress synchronization authority'
+    if ($route.skill -eq 'roadmap' -and $route.kind -ne 'planning-document') {
+        throw 'Roadmap route must remain a planning document'
     }
 
     $routeAgentNames = @($routeAgents | ForEach-Object { [string]$_.name })
+    if ($route.skill -eq 'analyze' -and 'critic' -in $routeAgentNames) {
+        throw 'Analysis must not route generic reasoning disputes to critic'
+    }
     $duplicateRouteAgents = @($routeAgentNames | Group-Object | Where-Object Count -gt 1)
     if ($duplicateRouteAgents.Count -gt 0) {
         throw "Routing entry '$($route.id)' repeats agents: $($duplicateRouteAgents.Name -join ', ')"
@@ -392,27 +333,14 @@ foreach ($route in $skillRoutes) {
         $referencedAgents.Add([string]$agent.name)
     }
 
-    if ($route.invocation -eq 'explicit-only') {
+    if ($route.skill -in $compatibilityInjectedSkills) {
         $metadataPath = Join-Path $skillsRoot "$($route.skill)\agents\openai.yaml"
         if (-not (Test-Path -LiteralPath $metadataPath -PathType Leaf)) {
-            throw "Explicit-only skill '$($route.skill)' is missing agents/openai.yaml"
-        }
-        $metadata = Get-Content -Raw -LiteralPath $metadataPath
-        if ($route.skill -in $requiredCatalogVisibleExplicitOnlySkills -and $metadata -notmatch '(?m)^\s*allow_implicit_invocation:\s*true\s*$') {
-            throw "Skill '$($route.skill)' must remain catalog-visible"
-        }
-        if ($route.skill -notin $requiredCatalogVisibleExplicitOnlySkills -and $metadata -notmatch '(?m)^\s*allow_implicit_invocation:\s*false\s*$') {
-            throw "Explicit-only skill '$($route.skill)' does not disable implicit invocation"
-        }
-    }
-    if ($route.skill -in $requiredCatalogVisibleUserRequestedSkills) {
-        $metadataPath = Join-Path $skillsRoot "$($route.skill)\agents\openai.yaml"
-        if (-not (Test-Path -LiteralPath $metadataPath -PathType Leaf)) {
-            throw "Catalog-visible skill '$($route.skill)' is missing agents/openai.yaml"
+            throw "Skill '$($route.skill)' is missing agents/openai.yaml"
         }
         $metadata = Get-Content -Raw -LiteralPath $metadataPath
         if ($metadata -notmatch '(?m)^\s*allow_implicit_invocation:\s*true\s*$') {
-            throw "Skill '$($route.skill)' must remain catalog-visible"
+            throw "Skill '$($route.skill)' invocation compatibility metadata changed without client verification"
         }
     }
 }

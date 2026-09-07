@@ -17,6 +17,7 @@ from typing import Optional
 REPO_ROOT = Path(__file__).resolve().parent.parent
 MANIFEST_PATH = REPO_ROOT / "package-manifest.json"
 AGENT_NAME_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+FILE_ATTRIBUTE_REPARSE_POINT = 0x400
 
 
 def parse_args() -> argparse.Namespace:
@@ -57,13 +58,49 @@ def load_agent_names() -> list[str]:
     return agents
 
 
+def is_reparse_point(path: Path) -> bool:
+    """Return whether an existing path is a symlink or Windows reparse point."""
+    try:
+        status = path.lstat()
+    except FileNotFoundError:
+        return False
+    return path.is_symlink() or bool(
+        getattr(status, "st_file_attributes", 0) & FILE_ATTRIBUTE_REPARSE_POINT
+    )
+
+
+def assert_no_reparse_points(path: Path) -> None:
+    candidate = Path(os.path.abspath(str(path)))
+    chain = list(reversed((candidate, *candidate.parents)))
+    for item in chain:
+        if is_reparse_point(item):
+            raise ValueError(f"runtime path must not traverse a reparse point: {item}")
+
+
+def is_within(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+        return True
+    except ValueError:
+        return False
+
+
+def assert_safe_destination(runtime_root: Path, destination: Path) -> None:
+    normalized = Path(os.path.abspath(str(destination)))
+    if not is_within(normalized, runtime_root):
+        raise ValueError(f"destination escapes runtime root: {normalized}")
+    assert_no_reparse_points(normalized)
+
+
 def resolve_runtime_root(requested: Optional[Path]) -> Path:
     raw = requested
     if raw is None:
         configured = os.environ.get("CODEX_HOME")
         raw = Path(configured) if configured else Path.home() / ".codex"
 
-    runtime_root = raw.expanduser().resolve()
+    expanded = Path(os.path.abspath(str(raw.expanduser())))
+    assert_no_reparse_points(expanded)
+    runtime_root = expanded.resolve(strict=False)
     filesystem_root = Path(runtime_root.anchor)
     if runtime_root == filesystem_root:
         raise ValueError(f"unsafe runtime root: {runtime_root}")
@@ -89,13 +126,13 @@ def digest(path: Path) -> str:
 def find_drift(agent_names: list[str], runtime_root: Path) -> list[str]:
     drift: list[str] = []
     destination_root = runtime_root / "agents"
-    if destination_root.is_symlink():
-        raise ValueError(f"agent destination must not be a symlink: {destination_root}")
+    assert_safe_destination(runtime_root, destination_root)
     for name in agent_names:
         source = REPO_ROOT / "agents" / f"{name}.toml"
         destination = destination_root / f"{name}.toml"
-        if destination.is_symlink():
-            raise ValueError(f"agent destination must not be a symlink: {destination}")
+        assert_safe_destination(runtime_root, destination)
+        if destination.exists() and not destination.is_file():
+            raise ValueError(f"agent destination must be a regular file: {destination}")
         if not destination.is_file():
             drift.append(f"MISSING agent/{name}.toml")
         elif digest(source) != digest(destination):
@@ -113,7 +150,7 @@ def atomic_copy(source: Path, destination: Path) -> None:
         shutil.copy2(source, temporary)
         os.replace(temporary, destination)
     finally:
-        if temporary.exists():
+        if temporary.exists() or temporary.is_symlink():
             temporary.unlink()
 
 
@@ -121,20 +158,37 @@ def copy_agents(
     agent_names: list[str], runtime_root: Path, replace_changed: bool
 ) -> None:
     destination_root = runtime_root / "agents"
-    destination_root.mkdir(parents=True, exist_ok=True)
+    assert_safe_destination(runtime_root, destination_root)
+    planned: list[tuple[Path, Path, Optional[Path]]] = []
     for name in agent_names:
         source = REPO_ROOT / "agents" / f"{name}.toml"
         destination = destination_root / f"{name}.toml"
-        if not destination.exists():
-            atomic_copy(source, destination)
+        assert_safe_destination(runtime_root, destination)
+        if destination.exists() and not destination.is_file():
+            raise ValueError(f"agent destination must be a regular file: {destination}")
+        if destination.exists() and digest(source) == digest(destination):
             continue
-        if digest(source) == digest(destination) or not replace_changed:
+        if destination.exists() and not replace_changed:
             continue
 
-        backup = destination.with_suffix(destination.suffix + ".bak")
-        if backup.exists() or backup.is_symlink():
-            raise ValueError(f"refusing to overwrite existing backup: {backup}")
-        shutil.copy2(destination, backup)
+        backup: Optional[Path] = None
+        if destination.exists():
+            backup = destination.with_suffix(destination.suffix + ".bak")
+            assert_safe_destination(runtime_root, backup)
+            if backup.exists() or backup.is_symlink():
+                raise ValueError(f"refusing to overwrite existing backup: {backup}")
+        temporary = destination.with_name(
+            f".{destination.name}.codex-essentials-{os.getpid()}.tmp"
+        )
+        assert_safe_destination(runtime_root, temporary)
+        if temporary.exists() or temporary.is_symlink():
+            raise ValueError(f"temporary destination already exists: {temporary}")
+        planned.append((source, destination, backup))
+
+    destination_root.mkdir(parents=True, exist_ok=True)
+    for source, destination, backup in planned:
+        if backup is not None:
+            shutil.copy2(destination, backup)
         atomic_copy(source, destination)
 
 

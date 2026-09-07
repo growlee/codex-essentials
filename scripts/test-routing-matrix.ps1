@@ -2,30 +2,28 @@
 param()
 
 $ErrorActionPreference = 'Stop'
-
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $temporaryBase = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd('\')
 $testRoot = Join-Path $temporaryBase "codex-essentials-routing-test-$([guid]::NewGuid().ToString('N'))"
 
 function Invoke-ExpectedFailure {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Pattern
-    )
-
-    $failedAsExpected = $false
+    param([Parameter(Mandatory)][string]$Pattern)
     try {
         & (Join-Path $testRoot 'scripts\validate-package.ps1') *> $null
     } catch {
-        if ($_.Exception.Message -match $Pattern) {
-            $failedAsExpected = $true
-        } else {
-            throw
-        }
+        if ($_.Exception.Message -match $Pattern) { return }
+        throw
     }
-    if (-not $failedAsExpected) {
-        throw "Validator accepted invalid routing state; expected '$Pattern'"
-    }
+    throw "Validator accepted invalid state; expected '$Pattern'"
+}
+
+function Assert-InvalidRoute {
+    param([scriptblock]$Change, [string]$Pattern)
+    $routing = Get-Content -Raw -LiteralPath $sourceRoutingPath | ConvertFrom-Json
+    & $Change $routing
+    $routing | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $routingPath
+    try { Invoke-ExpectedFailure -Pattern $Pattern }
+    finally { Copy-Item -LiteralPath $sourceRoutingPath -Destination $routingPath -Force }
 }
 
 try {
@@ -36,114 +34,76 @@ try {
     foreach ($name in @('LICENSE', 'package-manifest.json', 'routing-matrix.json')) {
         Copy-Item -LiteralPath (Join-Path $repoRoot $name) -Destination $testRoot
     }
-
     & (Join-Path $testRoot 'scripts\validate-package.ps1') *> $null
 
     $routingPath = Join-Path $testRoot 'routing-matrix.json'
     $sourceRoutingPath = Join-Path $repoRoot 'routing-matrix.json'
+    Assert-InvalidRoute { param($r)
+        $r.skillRoutes = @($r.skillRoutes | Where-Object skill -ne 'self-check')
+    } 'Skill routing mismatch'
+    Assert-InvalidRoute { param($r)
+        ($r.skillRoutes | Where-Object skill -eq 'analyze').agents[0].name = 'designer'
+    } "references undeclared agent 'designer'"
+    Assert-InvalidRoute { param($r)
+        ($r.skillRoutes | Where-Object skill -eq 'analyze').agents[1].name = 'critic'
+    } 'Analysis must not route generic reasoning disputes to critic'
+    foreach ($skill in @('self-check', 'roadmap')) {
+        Assert-InvalidRoute { param($r)
+            ($r.skillRoutes | Where-Object skill -eq $skill).invocation = 'user-requested'
+        } "Skill '$skill' must remain explicit-only"
+    }
+    Assert-InvalidRoute { param($r)
+        ($r.skillRoutes | Where-Object skill -eq 'diy').invocation = 'matched-or-explicit'
+    } 'DIY route must remain a user-requested goal'
+    Assert-InvalidRoute { param($r)
+        ($r.skillRoutes | Where-Object skill -eq 'diy').kind = 'implementation'
+    } 'DIY route must remain a user-requested goal'
+    Assert-InvalidRoute { param($r)
+        ($r.skillRoutes | Where-Object skill -eq 'roadmap').kind = 'implementation'
+    } 'Roadmap route must remain a planning document'
+    Assert-InvalidRoute { param($r)
+        $r.rules.automaticRouting = 'false'
+    } 'routing-matrix.rules.automaticRouting must be a JSON boolean'
 
-    $routing = Get-Content -Raw -LiteralPath $routingPath | ConvertFrom-Json
-    $routing.skillRoutes = @($routing.skillRoutes | Where-Object skill -ne 'self-check')
-    $routing | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $routingPath
-    Invoke-ExpectedFailure -Pattern 'Skill routing mismatch'
+    foreach ($skill in @('self-check', 'roadmap', 'diy')) {
+        $metadataPath = Join-Path $testRoot "plugins\codex-essentials\skills\$skill\agents\openai.yaml"
+        $metadata = Get-Content -Raw -LiteralPath $metadataPath
+        $metadata.Replace('allow_implicit_invocation: true', 'allow_implicit_invocation: false') |
+            Set-Content -LiteralPath $metadataPath
+        try { Invoke-ExpectedFailure -Pattern 'invocation compatibility metadata changed without client verification' }
+        finally { $metadata | Set-Content -LiteralPath $metadataPath }
+    }
 
-    Copy-Item -LiteralPath $sourceRoutingPath -Destination $routingPath -Force
-    $routing = Get-Content -Raw -LiteralPath $routingPath | ConvertFrom-Json
-    ($routing.skillRoutes | Where-Object skill -eq 'analyze').agents[0].name = 'designer'
-    $routing | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $routingPath
-    Invoke-ExpectedFailure -Pattern "references undeclared agent 'designer'"
+    $agentPath = Join-Path $testRoot 'agents\explore-luna.toml'
+    $originalAgent = Get-Content -Raw -LiteralPath $agentPath
+    foreach ($field in @('name', 'description', 'developer_instructions', 'model')) {
+        # Replacing a key preserves valid TOML, isolating the required-field check.
+        ($originalAgent -replace "(?m)^$field\s*=", "unused_$field =") | Set-Content -LiteralPath $agentPath
+        Invoke-ExpectedFailure -Pattern "Missing or invalid $field"
+    }
+    ($originalAgent -replace '(?m)^description\s*=.*$', 'description = 42') | Set-Content -LiteralPath $agentPath
+    Invoke-ExpectedFailure -Pattern 'Missing or invalid description'
+    ($originalAgent -replace '(?m)^name\s*=.*$', 'name = "wrong-name"') | Set-Content -LiteralPath $agentPath
+    Invoke-ExpectedFailure -Pattern 'Agent name mismatch'
+    ($originalAgent + [Environment]::NewLine + "name = 'duplicate'") | Set-Content -LiteralPath $agentPath
+    Invoke-ExpectedFailure -Pattern 'Invalid agent TOML'
+    ($originalAgent + [Environment]::NewLine + 'broken = [') | Set-Content -LiteralPath $agentPath
+    Invoke-ExpectedFailure -Pattern 'Invalid agent TOML'
+    $originalAgent | Set-Content -LiteralPath $agentPath
 
-    Copy-Item -LiteralPath $sourceRoutingPath -Destination $routingPath -Force
-    $routing = Get-Content -Raw -LiteralPath $routingPath | ConvertFrom-Json
-    ($routing.skillRoutes | Where-Object skill -eq 'self-check').invocation = 'user-requested'
-    $routing | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $routingPath
-    Invoke-ExpectedFailure -Pattern "Skill 'self-check' must remain explicit-only"
+    # Equivalent wording must not invalidate package structure. Skill behavior is
+    # reviewed from the actual contract, not inferred from a magic heading/sentence.
+    $diyPath = Join-Path $testRoot 'plugins\codex-essentials\skills\diy\SKILL.md'
+    (Get-Content -Raw -LiteralPath $diyPath).Replace('## Automatic start', '## Start the native goal') |
+        Set-Content -LiteralPath $diyPath
+    $roadmapPath = Join-Path $testRoot 'plugins\codex-essentials\skills\roadmap\SKILL.md'
+    (Get-Content -Raw -LiteralPath $roadmapPath).Replace(
+        'Only an explicit read-only or no-edit instruction suppresses this synchronization.',
+        'Skip synchronization only when the user explicitly requires read-only or no-edit work.'
+    ) | Set-Content -LiteralPath $roadmapPath
+    & (Join-Path $testRoot 'scripts\validate-package.ps1') *> $null
 
-    Copy-Item -LiteralPath $sourceRoutingPath -Destination $routingPath -Force
-    $routing = Get-Content -Raw -LiteralPath $routingPath | ConvertFrom-Json
-    ($routing.skillRoutes | Where-Object skill -eq 'diy').invocation = 'matched-or-explicit'
-    $routing | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $routingPath
-    Invoke-ExpectedFailure -Pattern "Skill 'diy' must remain user-requested"
-
-    Copy-Item -LiteralPath $sourceRoutingPath -Destination $routingPath -Force
-    $routing = Get-Content -Raw -LiteralPath $routingPath | ConvertFrom-Json
-    ($routing.skillRoutes | Where-Object skill -eq 'diy').authority = 'draft-only'
-    $routing | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $routingPath
-    Invoke-ExpectedFailure -Pattern 'DIY route must preserve comprehension-gated automatic start authority'
-
-    Copy-Item -LiteralPath $sourceRoutingPath -Destination $routingPath -Force
-    $diySkillPath = Join-Path $testRoot 'plugins\codex-essentials\skills\diy\SKILL.md'
-    $sourceDiySkillPath = Join-Path $repoRoot 'plugins\codex-essentials\skills\diy\SKILL.md'
-    $diySkill = Get-Content -Raw -LiteralPath $diySkillPath
-    $diySkill.Replace('## Automatic start', '## Manual start') |
-        Set-Content -LiteralPath $diySkillPath
-    Invoke-ExpectedFailure -Pattern 'DIY skill contract is missing automatic start'
-    Copy-Item -LiteralPath $sourceDiySkillPath -Destination $diySkillPath -Force
-
-    Copy-Item -LiteralPath $sourceRoutingPath -Destination $routingPath -Force
-    $routing = Get-Content -Raw -LiteralPath $routingPath | ConvertFrom-Json
-    $routing.rules.automaticRouting = 'false'
-    $routing | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $routingPath
-    Invoke-ExpectedFailure -Pattern 'routing-matrix.rules.automaticRouting must be a JSON boolean'
-
-    Copy-Item -LiteralPath $sourceRoutingPath -Destination $routingPath -Force
-    $metadataPath = Join-Path $testRoot 'plugins\codex-essentials\skills\self-check\agents\openai.yaml'
-    $metadata = Get-Content -Raw -LiteralPath $metadataPath
-    $metadata.Replace('allow_implicit_invocation: true', 'allow_implicit_invocation: false') |
-        Set-Content -LiteralPath $metadataPath
-    Invoke-ExpectedFailure -Pattern "Skill 'self-check' must remain catalog-visible"
-    $metadata | Set-Content -LiteralPath $metadataPath
-
-    $selfCheckSkillPath = Join-Path $testRoot 'plugins\codex-essentials\skills\self-check\SKILL.md'
-    $sourceSelfCheckSkillPath = Join-Path $repoRoot 'plugins\codex-essentials\skills\self-check\SKILL.md'
-    $selfCheckSkill = Get-Content -Raw -LiteralPath $selfCheckSkillPath
-    $selfCheckSkill.Replace('Act only through an explicit `$self-check` invocation', 'Act through `$self-check`') |
-        Set-Content -LiteralPath $selfCheckSkillPath
-    Invoke-ExpectedFailure -Pattern "Skill 'self-check' must preserve explicit invocation authority"
-    Copy-Item -LiteralPath $sourceSelfCheckSkillPath -Destination $selfCheckSkillPath -Force
-
-    Copy-Item -LiteralPath $sourceRoutingPath -Destination $routingPath -Force
-    $routing = Get-Content -Raw -LiteralPath $routingPath | ConvertFrom-Json
-    ($routing.skillRoutes | Where-Object skill -eq 'roadmap').invocation = 'user-requested'
-    $routing | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $routingPath
-    Invoke-ExpectedFailure -Pattern "Skill 'roadmap' must remain explicit-only"
-
-    Copy-Item -LiteralPath $sourceRoutingPath -Destination $routingPath -Force
-    $roadmapMetadataPath = Join-Path $testRoot 'plugins\codex-essentials\skills\roadmap\agents\openai.yaml'
-    $roadmapMetadata = Get-Content -Raw -LiteralPath $roadmapMetadataPath
-    $roadmapMetadata.Replace('allow_implicit_invocation: true', 'allow_implicit_invocation: false') |
-        Set-Content -LiteralPath $roadmapMetadataPath
-    Invoke-ExpectedFailure -Pattern "Skill 'roadmap' must remain catalog-visible"
-    $roadmapMetadata | Set-Content -LiteralPath $roadmapMetadataPath
-
-    $roadmapSkillPath = Join-Path $testRoot 'plugins\codex-essentials\skills\roadmap\SKILL.md'
-    $sourceRoadmapSkillPath = Join-Path $repoRoot 'plugins\codex-essentials\skills\roadmap\SKILL.md'
-    $roadmapSkill = Get-Content -Raw -LiteralPath $roadmapSkillPath
-    $roadmapSkill.Replace('Act only through an explicit `$roadmap` invocation or an explicit roadmap operation request', 'Act through `$roadmap`') |
-        Set-Content -LiteralPath $roadmapSkillPath
-    Invoke-ExpectedFailure -Pattern "Skill 'roadmap' must preserve explicit invocation authority"
-    Copy-Item -LiteralPath $sourceRoadmapSkillPath -Destination $roadmapSkillPath -Force
-
-    Copy-Item -LiteralPath $sourceRoutingPath -Destination $routingPath -Force
-    $routing = Get-Content -Raw -LiteralPath $routingPath | ConvertFrom-Json
-    ($routing.skillRoutes | Where-Object skill -eq 'roadmap').authority = 'read-only'
-    $routing | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $routingPath
-    Invoke-ExpectedFailure -Pattern 'Roadmap route must preserve default verified-progress synchronization authority'
-
-    Copy-Item -LiteralPath $sourceRoutingPath -Destination $routingPath -Force
-    $roadmapSkill = Get-Content -Raw -LiteralPath $roadmapSkillPath
-    $roadmapSkill.Replace('Only an explicit read-only or no-edit instruction suppresses this synchronization.', 'A query-only request is read-only.') |
-        Set-Content -LiteralPath $roadmapSkillPath
-    Invoke-ExpectedFailure -Pattern 'Roadmap skill contract is missing explicit read-only opt-out'
-    Copy-Item -LiteralPath $sourceRoadmapSkillPath -Destination $roadmapSkillPath -Force
-
-    $diyMetadataPath = Join-Path $testRoot 'plugins\codex-essentials\skills\diy\agents\openai.yaml'
-    $diyMetadata = Get-Content -Raw -LiteralPath $diyMetadataPath
-    $diyMetadata.Replace('allow_implicit_invocation: true', 'allow_implicit_invocation: false') |
-        Set-Content -LiteralPath $diyMetadataPath
-    Invoke-ExpectedFailure -Pattern "Skill 'diy' must remain catalog-visible"
-
-    Write-Output 'PASS routing matrix coverage, DIY and explicit-only contracts, packaged-agent references, and catalog visibility checks'
+    Write-Output 'PASS routing coverage, invocation compatibility, agent TOML schema, and prose-independent structural validation'
 } finally {
     if (Test-Path -LiteralPath $testRoot) {
         $resolvedTestRoot = (Resolve-Path -LiteralPath $testRoot).Path.TrimEnd('\')

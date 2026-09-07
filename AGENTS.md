@@ -6,7 +6,7 @@ This repository is the authoring source for the retained Codex skills and native
 
 - Edit skills only under `plugins/codex-essentials/skills/<name>/`.
 - Edit native agents only under `agents/<name>.toml`.
-- Treat copies under `~/.codex/skills` and `~/.codex/agents` as installed runtime mirrors, not authoring sources.
+- Treat copies under `~/.codex/skills`, `~/.codex/agents`, and `~/.codex/plugins/cache` as installed runtime mirrors, not authoring sources.
 - Do not edit an installed copy without making the corresponding source change here.
 - Treat package changes as source-only unless the current user request explicitly includes installation, synchronization, activation, or a live Codex update.
 
@@ -15,7 +15,8 @@ This repository is the authoring source for the retained Codex skills and native
 - Read the complete affected skill or agent definition before editing it.
 - Keep contracts small, bounded, and outcome-focused.
 - Prefer direct execution and native Codex capabilities over new workflow layers.
-- Do not add hooks, automatic routing, workflow state, background services, notifications, automatic updates, retry loops, or self-repair mechanisms.
+- Do not add hooks, automatic routing, package-owned workflow state, background services, notifications, automatic updates, retry loops, or self-repair mechanisms.
+- An explicit `$diy` invocation may create one native Codex goal under its skill contract. This is not authority for a package-owned lifecycle or for actions outside the user's requested scope.
 - Preserve each skill's invocation and authority boundaries.
 - Do not turn a skill into an automatic workflow, lifecycle, or recursive self-repair mechanism.
 - Use the system `skill-creator` instructions when creating or materially changing a skill.
