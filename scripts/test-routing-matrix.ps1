@@ -102,6 +102,41 @@ try {
     Invoke-ExpectedFailure -Pattern "Skill 'self-check' must preserve explicit invocation authority"
     Copy-Item -LiteralPath $sourceSelfCheckSkillPath -Destination $selfCheckSkillPath -Force
 
+    Copy-Item -LiteralPath $sourceRoutingPath -Destination $routingPath -Force
+    $routing = Get-Content -Raw -LiteralPath $routingPath | ConvertFrom-Json
+    ($routing.skillRoutes | Where-Object skill -eq 'roadmap').invocation = 'user-requested'
+    $routing | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $routingPath
+    Invoke-ExpectedFailure -Pattern "Skill 'roadmap' must remain explicit-only"
+
+    Copy-Item -LiteralPath $sourceRoutingPath -Destination $routingPath -Force
+    $roadmapMetadataPath = Join-Path $testRoot 'plugins\codex-essentials\skills\roadmap\agents\openai.yaml'
+    $roadmapMetadata = Get-Content -Raw -LiteralPath $roadmapMetadataPath
+    $roadmapMetadata.Replace('allow_implicit_invocation: true', 'allow_implicit_invocation: false') |
+        Set-Content -LiteralPath $roadmapMetadataPath
+    Invoke-ExpectedFailure -Pattern "Skill 'roadmap' must remain catalog-visible"
+    $roadmapMetadata | Set-Content -LiteralPath $roadmapMetadataPath
+
+    $roadmapSkillPath = Join-Path $testRoot 'plugins\codex-essentials\skills\roadmap\SKILL.md'
+    $sourceRoadmapSkillPath = Join-Path $repoRoot 'plugins\codex-essentials\skills\roadmap\SKILL.md'
+    $roadmapSkill = Get-Content -Raw -LiteralPath $roadmapSkillPath
+    $roadmapSkill.Replace('Act only through an explicit `$roadmap` invocation or an explicit roadmap operation request', 'Act through `$roadmap`') |
+        Set-Content -LiteralPath $roadmapSkillPath
+    Invoke-ExpectedFailure -Pattern "Skill 'roadmap' must preserve explicit invocation authority"
+    Copy-Item -LiteralPath $sourceRoadmapSkillPath -Destination $roadmapSkillPath -Force
+
+    Copy-Item -LiteralPath $sourceRoutingPath -Destination $routingPath -Force
+    $routing = Get-Content -Raw -LiteralPath $routingPath | ConvertFrom-Json
+    ($routing.skillRoutes | Where-Object skill -eq 'roadmap').authority = 'read-only'
+    $routing | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $routingPath
+    Invoke-ExpectedFailure -Pattern 'Roadmap route must preserve default verified-progress synchronization authority'
+
+    Copy-Item -LiteralPath $sourceRoutingPath -Destination $routingPath -Force
+    $roadmapSkill = Get-Content -Raw -LiteralPath $roadmapSkillPath
+    $roadmapSkill.Replace('Only an explicit read-only or no-edit instruction suppresses this synchronization.', 'A query-only request is read-only.') |
+        Set-Content -LiteralPath $roadmapSkillPath
+    Invoke-ExpectedFailure -Pattern 'Roadmap skill contract is missing explicit read-only opt-out'
+    Copy-Item -LiteralPath $sourceRoadmapSkillPath -Destination $roadmapSkillPath -Force
+
     $diyMetadataPath = Join-Path $testRoot 'plugins\codex-essentials\skills\diy\agents\openai.yaml'
     $diyMetadata = Get-Content -Raw -LiteralPath $diyMetadataPath
     $diyMetadata.Replace('allow_implicit_invocation: true', 'allow_implicit_invocation: false') |

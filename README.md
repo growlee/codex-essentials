@@ -22,7 +22,7 @@ The result is a small package whose behavior can be inspected, tested, and insta
 | Area | Implementation |
 |---|---|
 | Codex packaging | GitHub-compatible marketplace and plugin manifests |
-| Skill design | 12 bounded skills with explicit authority and stop conditions |
+| Skill design | 14 bounded skills with explicit authority and stop conditions |
 | Agent design | 16 typed native-agent definitions kept separate from the plugin |
 | Routing | Declarative, non-executing skill/agent matrix |
 | Safety | No hooks, automatic routing, package-owned workflow state, or self-repair lifecycle |
@@ -36,9 +36,11 @@ The result is a small package whose behavior can be inspected, tested, and insta
 | `analyze` | Trace architecture, behavior, dependencies, and change impact |
 | `diagnose` | Find the most likely root cause of a concrete failure |
 | `diy` | Check a scoped request, then create one native Codex goal on explicit invocation |
+| `eli5` | Explain a topic to a beginner with large illustrations and minimal text in a local HTML artifact |
 | `self-check` | Detect repeated work or reopened settled decisions without creating a loop |
 | `grill-me` | Resolve material decisions through a focused interview and durable record |
 | `prototype` | Build a disposable experiment for one concrete question |
+| `roadmap` | Keep one evidence-grounded roadmap synchronized with verified development progress |
 | `tdd` | Drive an explicitly requested change from a failing test |
 | `delivery-proof` | Validate a delivery claim against concrete evidence |
 | `visual-proof` | Validate visible behavior through rendered or runtime evidence |
@@ -52,13 +54,14 @@ The plugin skills live under [`plugins/codex-essentials/skills`](plugins/codex-e
 
 - [`grill-me` decision record](examples/grill-me-decision-record.md) shows how answers remain durable without becoming workflow state.
 - [`self-check` loop stop](examples/self-check-loop-stop.md) shows how repeated work is stopped without retry counters or recursive repair.
+- `$codex-essentials:eli5 how does DNS work?` creates a local HTML picture explainer.
 
 ## Install the plugin
 
 Prerequisite: a Codex CLI build that provides `codex plugin marketplace` and `codex plugin add`.
 
 ```powershell
-codex plugin marketplace add growlee/codex-essentials --ref v0.3.3 `
+codex plugin marketplace add growlee/codex-essentials --ref v0.4.1 `
   --sparse .agents/plugins `
   --sparse plugins/codex-essentials
 
@@ -167,5 +170,7 @@ The tests verify exact skill and agent coverage, explicit-only and catalog-visib
 ## Origin and license
 
 Codex Essentials is an independent package derived from selected OMX workflow and role ideas. It is not affiliated with or endorsed by the OMX project.
+
+The `eli5` skill is an independently worded Codex adaptation of [ELI5 by Thariq Shihipar](https://github.com/anthropics/claude-plugins-community/tree/a727be1c7bd6064419b6f60d71993a19198adc17/eli5) from Anthropic's community marketplace (upstream plugin 1.0.0, revision `a727be1c7bd6064419b6f60d71993a19198adc17`). It preserves the visual-explanation concept and adds Codex invocation and local HTML delivery; it does not install the Claude plugin or receive automatic upstream updates.
 
 Released under the [MIT License](LICENSE).

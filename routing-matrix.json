@@ -73,6 +73,18 @@
       "stop": "A material question is returned, an explicit draft is returned, or one native goal is created; no package-owned continuation or retry follows"
     },
     {
+      "id": "user-requested-picture-explainer",
+      "taskShape": "The user invokes ELI5 with a topic or requests a simple picture explainer of how something works",
+      "skill": "eli5",
+      "kind": "explanation",
+      "invocation": "user-requested",
+      "authority": "create only the requested local HTML explanation; no deployment or application setup",
+      "delegation": "none",
+      "agents": [],
+      "result": "One beginner-friendly HTML artifact with large illustrations, minimal text, and a local file link",
+      "stop": "The requested topic is explained and the artifact is delivered"
+    },
+    {
       "id": "throwaway-prototype",
       "taskShape": "The user requests a disposable runnable experiment for one uncertain product, logic, state, or UI question",
       "skill": "prototype",
@@ -92,6 +104,23 @@
       ],
       "result": "Runnable prototype, run command, observed answer, and keep-or-delete decision",
       "stop": "The named prototype question is answered"
+    },
+    {
+      "id": "explicit-development-roadmap",
+      "taskShape": "The user explicitly requests creation, progress assessment, or next-task guidance for a durable multi-milestone roadmap",
+      "skill": "roadmap",
+      "kind": "planning-document",
+      "invocation": "explicit-only",
+      "authority": "read the current project and create one roadmap when requested; unless the user explicitly requires read-only, synchronize the same resolved roadmap when verified progress or next-task evidence makes it stale; no implementation or goal authority",
+      "delegation": "optional",
+      "agents": [
+        {
+          "name": "planner",
+          "when": "Multiple dependent components make milestone sequencing materially non-trivial"
+        }
+      ],
+      "result": "One evidence-grounded roadmap synchronized with verified progress, a preferred direction, and one current recommended next task",
+      "stop": "The resolved roadmap is current and read back after any write; no additional milestone starts automatically"
     },
     {
       "id": "explicit-tdd",

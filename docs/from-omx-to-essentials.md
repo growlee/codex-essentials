@@ -27,7 +27,7 @@ Components that duplicated native Codex behavior, required automatic lifecycle m
 
 The package now has two independent layers:
 
-- an installable plugin containing 11 explicit, bounded skills;
+- an installable plugin containing 14 bounded skills with defined invocation contracts;
 - 16 optional native-agent definitions installed separately because custom agents are not plugin capabilities.
 
 The routing matrix is declarative. It records task shape, authority, optional-agent conditions, expected result, and stop boundaries, but it cannot activate a skill or launch an agent.

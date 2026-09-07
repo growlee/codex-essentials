@@ -275,6 +275,7 @@ $requiredExplicitOnlySkills = @(
     'delivery-proof',
     'grill-me',
     'handoff',
+    'roadmap',
     'self-check',
     'tdd',
     'visual-proof',
@@ -283,11 +284,13 @@ $requiredExplicitOnlySkills = @(
 $requiredCatalogVisibleExplicitOnlySkills = @($requiredExplicitOnlySkills)
 $requiredCatalogVisibleUserRequestedSkills = @('diy')
 $requiredDiyAuthority = 'check material ambiguity before goal-state access; after an unambiguous explicit invocation, automatically create one native goal unless the user explicitly requests draft-only'
+$requiredRoadmapAuthority = 'read the current project and create one roadmap when requested; unless the user explicitly requires read-only, synchronize the same resolved roadmap when verified progress or next-task evidence makes it stale; no implementation or goal authority'
 $requiredExplicitAuthorityPatterns = [ordered]@{
     'adversarial-check' = 'Act only through an explicit \x60\$adversarial-check\x60 invocation'
     'delivery-proof' = 'Act only through an explicit \x60\$delivery-proof\x60 invocation'
     'grill-me' = 'Act only through an explicit \x60\$grill-me\x60 invocation or an explicit request to be interviewed'
     'handoff' = 'Act only through an explicit \x60\$handoff\x60 invocation'
+    'roadmap' = 'Act only through an explicit \x60\$roadmap\x60 invocation or an explicit roadmap operation request'
     'self-check' = 'Act only through an explicit \x60\$self-check\x60 invocation'
     'tdd' = 'Act only through an explicit \x60\$tdd\x60 invocation'
     'visual-proof' = 'Act only through an explicit \x60\$visual-proof\x60 invocation'
@@ -301,6 +304,22 @@ foreach ($entry in $requiredExplicitAuthorityPatterns.GetEnumerator()) {
     $skillContract = Get-Content -Raw -LiteralPath $skillPath
     if ($skillContract -notmatch $entry.Value) {
         throw "Skill '$($entry.Key)' must preserve explicit invocation authority"
+    }
+}
+$roadmapSkillPath = Join-Path $skillsRoot 'roadmap\SKILL.md'
+if (-not (Test-Path -LiteralPath $roadmapSkillPath -PathType Leaf)) {
+    throw 'Roadmap skill contract is missing'
+}
+$roadmapSkill = Get-Content -Raw -LiteralPath $roadmapSkillPath
+$requiredRoadmapContractPatterns = [ordered]@{
+    'verified progress synchronization' = '(?m)^## Synchronize verified progress\s*$'
+    'explicit read-only opt-out' = 'Only an explicit read-only or no-edit instruction suppresses this synchronization'
+    'evidence-bound completion' = 'mark a milestone complete only when current evidence satisfies its completion criteria'
+    'current next task' = 'remove an obsolete recommended next task and replace it with the smallest currently unblocked next task'
+}
+foreach ($entry in $requiredRoadmapContractPatterns.GetEnumerator()) {
+    if ($roadmapSkill -notmatch $entry.Value) {
+        throw "Roadmap skill contract is missing $($entry.Key)"
     }
 }
 $diySkillPath = Join-Path $skillsRoot 'diy\SKILL.md'
@@ -353,6 +372,9 @@ foreach ($route in $skillRoutes) {
     }
     if ($route.skill -eq 'diy' -and $route.authority -ne $requiredDiyAuthority) {
         throw 'DIY route must preserve comprehension-gated automatic start authority'
+    }
+    if ($route.skill -eq 'roadmap' -and $route.authority -ne $requiredRoadmapAuthority) {
+        throw 'Roadmap route must preserve default verified-progress synchronization authority'
     }
 
     $routeAgentNames = @($routeAgents | ForEach-Object { [string]$_.name })
