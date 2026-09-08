@@ -37,7 +37,12 @@ When adding, removing, or renaming a skill or agent:
 
 ## Verification
 
-After changes, run:
+Choose validation in proportion to the changed surface:
+
+- Run `.\scripts\validate-package.ps1` for changes to package, skill, agent, or routing surfaces covered by the package validator.
+- Run `.\scripts\test-routing-matrix.ps1`, `.\scripts\test-sync-runtime.ps1`, `python .\scripts\test-install-agents.py`, or `python .\scripts\test-audit-harness.py` when the corresponding implementation or interface changes.
+- For prose-only changes, run only directly relevant checks, if any.
+- Before package release or publication, or after cross-cutting shared changes, run the complete suite:
 
 ```powershell
 .\scripts\validate-package.ps1
@@ -47,7 +52,7 @@ python .\scripts\test-install-agents.py
 python .\scripts\test-audit-harness.py
 ```
 
-Also verify that:
+Use the applicable checks to verify that:
 
 - the manifest lists exactly the skills and agents present in the repository;
 - the plugin manifest exposes exactly the packaged skills and no hooks, MCP servers, apps, or native-agent claims;
