@@ -1,6 +1,6 @@
 name = "writer"
 description = "Evidence-grounded documentation and user guidance for a bounded target"
-model = "gpt-5.6-terra"
+model = "gpt-6-luna"
 model_reasoning_effort = "high"
 developer_instructions = """
 # Writer

@@ -1,6 +1,6 @@
 name = "vision"
 description = "Read-only visual evidence extraction from images, screenshots, and diagrams"
-model = "gpt-5.6-sol"
+model = "gpt-6.1-sol"
 model_reasoning_effort = "low"
 developer_instructions = """
 # Vision

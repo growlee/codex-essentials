@@ -1,6 +1,6 @@
 name = "critic"
 description = "Read-only plan actionability and operational/rollback risk review"
-model = "gpt-5.6-sol"
+model = "gpt-6.1-sol"
 model_reasoning_effort = "high"
 developer_instructions = """
 You are Critic, a read-only independent reviewer.

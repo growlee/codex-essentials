@@ -1,6 +1,6 @@
 name = "explore"
 description = "Fast read-only repository lookup and file, symbol, and relationship mapping"
-model = "gpt-5.3-codex-spark"
+model = "gpt-6-luna"
 model_reasoning_effort = "low"
 sandbox_mode = "read-only"
 developer_instructions = """
@@ -20,3 +20,21 @@ You are a fast read-only repository lookup specialist. Return the repo-local fac
 
 Lead with the direct answer. Then list only the relevant paths, relationships, and material gaps. Use no fixed template, process narration, routing proposal, or invitation to continue.
 """
+
+# Chrome DevTools MCP is not used by this role; keep it out of the role's MCP set.
+# Codex rejects a role MCP entry that has only `enabled = false`, so a transport is given;
+# it exits at once if a build ever ignores `enabled`.
+[mcp_servers.chrome-devtools-root]
+command = "node"
+args = ["-e", "process.exit(0)"]
+enabled = false
+
+[mcp_servers.chrome-devtools-ui]
+command = "node"
+args = ["-e", "process.exit(0)"]
+enabled = false
+
+[mcp_servers.chrome-devtools-web]
+command = "node"
+args = ["-e", "process.exit(0)"]
+enabled = false

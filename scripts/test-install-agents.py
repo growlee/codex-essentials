@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 import os
 import subprocess
 import sys
@@ -13,6 +14,9 @@ import unittest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 INSTALLER = REPO_ROOT / "scripts" / "install-agents.py"
+MANAGED_AGENTS = json.loads(
+    (REPO_ROOT / "package-manifest.json").read_text(encoding="utf-8")
+)["agents"]
 
 
 class InstallAgentsTests(unittest.TestCase):
@@ -45,12 +49,26 @@ class InstallAgentsTests(unittest.TestCase):
 
             applied = self.run_installer(runtime_root, "apply")
             self.assertEqual(applied.returncode, 0, applied.stdout + applied.stderr)
-            self.assertIn("SYNCHRONIZED runtime mirrors: 16 agents", applied.stdout)
+            self.assertIn(
+                f"SYNCHRONIZED runtime mirrors: {len(MANAGED_AGENTS)} agents",
+                applied.stdout,
+            )
             self.assertFalse((runtime_root / "skills").exists())
+            self.assertEqual(
+                sorted(path.stem for path in (runtime_root / "agents").glob("*.toml")),
+                sorted(MANAGED_AGENTS),
+            )
+            self.assertEqual(
+                (runtime_root / "agents" / "homelab.toml").read_bytes(),
+                (REPO_ROOT / "agents" / "homelab.toml").read_bytes(),
+            )
 
             verified = self.run_installer(runtime_root, "verify")
             self.assertEqual(verified.returncode, 0, verified.stdout + verified.stderr)
-            self.assertIn("VERIFIED runtime mirrors: 16 agents", verified.stdout)
+            self.assertIn(
+                f"VERIFIED runtime mirrors: {len(MANAGED_AGENTS)} agents",
+                verified.stdout,
+            )
 
             analyst = runtime_root / "agents" / "analyst.toml"
             analyst.write_text(

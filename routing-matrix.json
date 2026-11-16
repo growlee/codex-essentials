@@ -38,7 +38,7 @@
       "agents": [
         {
           "name": "debugger",
-          "when": "The cause is unknown or the same failure repeats"
+          "when": "An independent bounded diagnostic branch would materially shorten the investigation"
         },
         {
           "name": "test-engineer",
@@ -111,7 +111,7 @@
       "skill": "roadmap",
       "kind": "planning-document",
       "invocation": "explicit-only",
-      "authority": "read the current project and create one roadmap when requested; unless the user explicitly requires read-only, synchronize the same resolved roadmap when verified progress or next-task evidence makes it stale; no implementation or goal authority",
+      "authority": "an explicit roadmap creation, progress, priority, or next-task request persists one scoped roadmap: follow an existing project pointer, reuse a matching file, or create one if absent; maintain one path-and-scope link in existing project instructions or an established index; read-only/no-edit forbids all writes, ambiguous matches require clarification; synchronize verified progress in the same file; no implementation or goal authority",
       "delegation": "optional",
       "agents": [
         {
@@ -119,8 +119,8 @@
           "when": "Multiple dependent components make milestone sequencing materially non-trivial"
         }
       ],
-      "result": "One evidence-grounded roadmap synchronized with verified progress, a preferred direction, and one current recommended next task",
-      "stop": "The resolved roadmap is current and read back after any write; no additional milestone starts automatically"
+      "result": "One evidence-grounded roadmap saved at a stable, reported path with verified progress, a preferred direction, and one current recommended next task; read-only or blocked results explicitly identify the write boundary",
+      "stop": "The resolved roadmap is current and read back after any write, with its link retained in existing project instructions or index when available; no additional milestone starts automatically"
     },
     {
       "id": "explicit-tdd",
@@ -290,9 +290,9 @@
     {
       "name": "executor",
       "classification": "routed",
-      "useWhen": "One genuinely independent bounded implementation slice materially improves throughput",
-      "avoid": "Trivial work, planning, or final ownership claims",
-      "returns": "Scoped changes, checks, and remaining risks"
+      "useWhen": "Prefer for substantial independent implementation slices with explicit ownership and agreed interfaces when benefit exceeds context, waiting, and integration costs",
+      "avoid": "Small or tightly coupled work, sequential diagnosis, read-only requests, competing shared-contract edits, or final ownership claims",
+      "returns": "Owned changes, relevant check evidence, and integration gaps to the leader; slice checks do not replace assembled-candidate checks or independent acceptance"
     },
     {
       "name": "explore",
@@ -302,19 +302,18 @@
       "returns": "Current file and symbol map with references"
     },
     {
-      "name": "explore-luna",
-      "classification": "fallback",
-      "fallbackFor": "explore",
-      "useWhen": "The primary explore model is unavailable, rate-limited, usage-limited, or inaccessible",
-      "avoid": "Routine preference or escalation from an unsatisfactory answer",
-      "returns": "The same bounded read-only lookup contract as explore"
-    },
-    {
       "name": "git-master",
       "classification": "standalone",
       "useWhen": "The user explicitly authorizes a Git operation with materially complex history topology",
       "avoid": "Routine status, diff, add, commit, or push work",
       "returns": "Exact history evidence, performed operation, and before-and-after state"
+    },
+    {
+      "name": "homelab",
+      "classification": "standalone",
+      "useWhen": "A parent needs one bounded infrastructure slice in the canonical infrastructure workspace; return directly to that parent without a permanent operations-chat relay",
+      "avoid": "Product code or application-data ownership, long-lived project dispatch, conflicting shared-resource mutations, or inferred production/credential authority",
+      "returns": "Scoped infrastructure result with exact targets, verification evidence, applicable backup/rollback proof and remaining gaps; long-lived projects use explicitly selected task chats"
     },
     {
       "name": "planner",
@@ -343,6 +342,13 @@
       "useWhen": "A supplied completion or delivery claim requires independent validation",
       "avoid": "Implementation, repair, or duplicate proof by the same owner",
       "returns": "PASS, FAIL, or BLOCKED with identity-linked evidence"
+    },
+    {
+      "name": "verifier-faceit",
+      "classification": "standalone",
+      "useWhen": "A FACEIT Developer delegates independent acceptance of an exact candidate and package",
+      "avoid": "Other projects, candidate repair, permanent-chat routing or implicit LIVE authority",
+      "returns": "Per-case and aggregate PASS, FAIL or BLOCKED with identity-linked evidence to the parent"
     },
     {
       "name": "vision",

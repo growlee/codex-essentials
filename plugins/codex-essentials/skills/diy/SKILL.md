@@ -5,7 +5,7 @@ description: "Check one scoped request for material ambiguity, then automaticall
 
 # DIY
 
-Turn the current scoped request into one reviewable native Codex goal. An explicit `$diy` invocation authorizes automatic goal creation after the comprehension gate; it does not authorize execution of the created goal.
+Turn the current scoped request into one reviewable native Codex goal. An explicit `$diy` invocation authorizes automatic goal creation after the comprehension gate; it does not expand the authority for later native goal execution beyond the current user request and applicable operating contracts.
 
 ## Activation and authority
 

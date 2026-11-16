@@ -74,7 +74,7 @@ try {
         finally { $metadata | Set-Content -LiteralPath $metadataPath }
     }
 
-    $agentPath = Join-Path $testRoot 'agents\explore-luna.toml'
+    $agentPath = Join-Path $testRoot 'agents\explore.toml'
     $originalAgent = Get-Content -Raw -LiteralPath $agentPath
     foreach ($field in @('name', 'description', 'developer_instructions', 'model')) {
         # Replacing a key preserves valid TOML, isolating the required-field check.
@@ -85,7 +85,8 @@ try {
     Invoke-ExpectedFailure -Pattern 'Missing or invalid description'
     ($originalAgent -replace '(?m)^name\s*=.*$', 'name = "wrong-name"') | Set-Content -LiteralPath $agentPath
     Invoke-ExpectedFailure -Pattern 'Agent name mismatch'
-    ($originalAgent + [Environment]::NewLine + "name = 'duplicate'") | Set-Content -LiteralPath $agentPath
+    # Put the duplicate in the root table, even when the agent ends in MCP tables.
+    ("name = 'duplicate'" + [Environment]::NewLine + $originalAgent) | Set-Content -LiteralPath $agentPath
     Invoke-ExpectedFailure -Pattern 'Invalid agent TOML'
     ($originalAgent + [Environment]::NewLine + 'broken = [') | Set-Content -LiteralPath $agentPath
     Invoke-ExpectedFailure -Pattern 'Invalid agent TOML'

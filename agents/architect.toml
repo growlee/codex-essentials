@@ -1,6 +1,6 @@
 name = "architect"
 description = "Read-only system boundaries, interfaces, ownership, and material architecture tradeoffs"
-model = "gpt-5.6-sol"
+model = "gpt-6.1-sol"
 model_reasoning_effort = "xhigh"
 developer_instructions = """
 # Architect

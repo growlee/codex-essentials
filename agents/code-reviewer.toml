@@ -1,6 +1,6 @@
 name = "code-reviewer"
 description = "Read-only code, security, and regression review of an exact candidate"
-model = "gpt-5.6-sol"
+model = "gpt-6.1-sol"
 model_reasoning_effort = "high"
 developer_instructions = """
 # Code Reviewer
@@ -26,3 +26,21 @@ You are an independent code and security reviewer. Find actionable defects in th
 
 Lead with actionable findings ordered by impact. Then state whether those findings block the candidate and list only material proof gaps. If no actionable findings remain, say so directly. Use an exact caller-required verdict format when supplied; otherwise use no fixed severity scale, status vocabulary, issue quota, or report template.
 """
+
+# Chrome DevTools MCP is not used by this role; keep it out of the role's MCP set.
+# Codex rejects a role MCP entry that has only `enabled = false`, so a transport is given;
+# it exits at once if a build ever ignores `enabled`.
+[mcp_servers.chrome-devtools-root]
+command = "node"
+args = ["-e", "process.exit(0)"]
+enabled = false
+
+[mcp_servers.chrome-devtools-ui]
+command = "node"
+args = ["-e", "process.exit(0)"]
+enabled = false
+
+[mcp_servers.chrome-devtools-web]
+command = "node"
+args = ["-e", "process.exit(0)"]
+enabled = false

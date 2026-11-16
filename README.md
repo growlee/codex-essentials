@@ -23,7 +23,7 @@ The result is a small package whose behavior can be inspected, tested, and insta
 |---|---|
 | Codex packaging | GitHub-compatible marketplace and plugin manifests |
 | Skill design | 14 bounded skills with explicit authority and stop conditions |
-| Agent design | 16 typed native-agent definitions kept separate from the plugin |
+| Agent design | 17 typed native-agent definitions kept separate from the plugin |
 | Routing | Declarative, non-executing skill/agent matrix |
 | Safety | No hooks, automatic routing, package-owned workflow state, or self-repair lifecycle |
 | Harness tooling | Sanitized templates and a read-only local inventory/drift auditor |
@@ -40,7 +40,7 @@ The result is a small package whose behavior can be inspected, tested, and insta
 | `self-check` | Detect repeated work or reopened settled decisions without creating a loop |
 | `grill-me` | Resolve material decisions through a focused interview and durable record |
 | `prototype` | Build a disposable experiment for one concrete question |
-| `roadmap` | Keep one evidence-grounded roadmap synchronized with verified development progress |
+| `roadmap` | Create or reuse one durable roadmap on explicit invocation, retain its project link, and synchronize verified progress; respect read-only |
 | `tdd` | Drive an explicitly requested change from a failing test |
 | `delivery-proof` | Validate a delivery claim against concrete evidence |
 | `visual-proof` | Validate visible behavior through rendered or runtime evidence |
@@ -49,6 +49,26 @@ The result is a small package whose behavior can be inspected, tested, and insta
 | `handoff` | Prepare a bounded, verifiable continuation contract |
 
 The plugin skills live under [`plugins/codex-essentials/skills`](plugins/codex-essentials/skills). Native agents remain in [`agents`](agents) because Codex plugin manifests do not install agent TOML definitions.
+
+`verifier-faceit` is a project-specific native subagent for independent FACEIT
+candidate, package and isolated browser checks. It returns evidence to its parent;
+the generic `verifier` remains available for other projects. Installation alone
+does not prove that a running chat has refreshed its native-agent catalog.
+
+`homelab` handles one bounded infrastructure slice on GPT-6.1 Sol/high and
+returns directly to its parent. Long-lived infrastructure projects use explicitly
+selected task chats; creating a new chat still requires the user's request.
+The infrastructure repository/Wiki, not one permanent Ops chat, retains shared
+knowledge. Coordinate conflicting resources, not every task on the same host.
+The role preserves infrastructure authority, backup/rollback and independent
+risk-review requirements. It is a companion native-agent definition, not a
+plugin-installed skill; source changes alone do not activate it in running chats.
+
+For an already open chat whose catalog lacks an installed `homelab`, the global
+contract template permits native `default` with the complete installed role
+instructions, its configured model/reasoning effort, and fresh task context.
+Report this as a compatibility launch; it does not prove named-role activation.
+Unavailable delegation/model or a policy denial is not covered by this route.
 
 ## Examples
 
@@ -90,8 +110,6 @@ python scripts/install-agents.py --mode apply --replace-changed
 
 Each replaced definition is preserved beside it as `<name>.toml.bak`. The installer refuses to overwrite an existing backup.
 
-`explore-luna` is a standalone fallback definition. If an older installation also registers this file as `[agents.explore_luna]` in `config.toml`, review that legacy alias before migrating; the file's canonical name is `explore-luna`. The installer does not rewrite configuration or remove aliases.
-
 The existing PowerShell workflow remains available for users who intentionally synchronize skills, agents, or both:
 
 ```powershell
@@ -113,6 +131,16 @@ python scripts/audit-harness.py --json
 ```
 
 Use `--source-root` or `--runtime-root` for non-default locations; plugin inventory uses that same runtime root. `--strict-mirrors` returns a non-zero exit when a directly synchronized managed mirror is changed, missing, or unsafe; omit it when plugin installation intentionally replaces direct skill mirrors. Missing direct copies do not imply missing plugin skills. An enabled registry entry and matching cache prove installation bytes, not that an already running task has reloaded its catalog. `--skip-plugins` skips registry/cache inspection entirely.
+
+Prefer one installation route for packaged skills. When moving from direct skills
+to the plugin, first verify the enabled package and compare its complete cache
+with the authoring source. Preserve any local differences, then move only the
+confirmed duplicate skill directories outside the runtime's `skills` tree.
+Likewise, exact legacy prompt duplicates can be archived outside `prompts` after
+checking the corresponding installed agent definition. Keep unrelated skills and
+prompts. Archive locations are rollback copies, never another active source.
+Commit the reviewed source state before treating it as a reproducible baseline;
+matching installed bytes alone does not establish a versioned baseline.
 
 ## Reuse the harness contract
 

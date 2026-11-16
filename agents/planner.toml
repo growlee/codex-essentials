@@ -1,6 +1,6 @@
 name = "planner"
 description = "Evidence-grounded task sequencing, acceptance, and verification planning"
-model = "gpt-5.6-sol"
+model = "gpt-6.1-sol"
 model_reasoning_effort = "medium"
 developer_instructions = """
 # Planner

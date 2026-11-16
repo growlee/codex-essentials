@@ -10,10 +10,11 @@ Maintain one current roadmap for a named development area. A roadmap recommends 
 ## Activation and authority
 
 - Act only through an explicit `$roadmap` invocation or an explicit roadmap operation request. Catalog visibility or implicit loading is not execution authority.
-- Creating a roadmap requires an explicit create request and authorizes writing exactly one task-local Markdown file plus its immediate parent directory when needed.
+- An explicit roadmap request for creation, progress, priorities, or next steps authorizes persisting one scoped project-local Markdown roadmap. If no matching file exists, create it without requiring a separate "create" command. An explicit read-only or no-edit request permits neither creation nor updates.
+- Writes are limited to that roadmap, its parent directory when needed, and one compact path-and-scope link in existing relevant project/role instructions or an established roadmap index. Do not create a separate registry or rewrite operating rules just to record the path.
 - A progress, completion, priority, or next-task request about a resolved existing roadmap authorizes updating that same file when verified evidence makes it stale. Only an explicit read-only or no-edit instruction suppresses this synchronization.
 - If the current request separately authorizes implementation of work named in the resolved roadmap, that authority comes from the request, not this skill. Synchronize the same roadmap after the work reaches a verified outcome, then stop without starting another milestone.
-- This skill itself does not authorize modifying code, configuration, Git state, services, native goals, tasks, or external systems.
+- Beyond the roadmap and its documentation link, this skill itself does not authorize modifying code, configuration, Git state, services, native goals, tasks, or external systems.
 - Do not create hooks, workflow state, ledgers, retry loops, background work, or automatic continuation.
 - The roadmap is advisory. Its milestones never authorize their own execution.
 
@@ -22,9 +23,9 @@ Maintain one current roadmap for a named development area. A roadmap recommends 
 Use the first applicable source:
 
 1. the exact file named by the user;
-2. one existing repository roadmap whose `Roadmap-ID` and scope match the current request;
-3. the repository's established roadmap location;
-4. otherwise `<project-root>/roadmaps/<scope-slug>.md`, using the repository root or, when no repository exists, the current workspace root.
+2. the matching scoped roadmap link in project/role instructions or an established roadmap index; resolve relative links against the containing file;
+3. one existing repository roadmap matching the requested scope; use `Roadmap-ID` when present, but do not reject a matching older file only because it lacks identity fields;
+4. the repository's established roadmap location, otherwise `<project-root>/roadmaps/<scope-slug>.md`, using the repository root or, when no repository exists, the current workspace root.
 
 On first creation, include these stable identity fields near the top:
 
@@ -36,7 +37,11 @@ Scope: <plain-language development area>
 
 Search the current project before creating a file. Never create a second roadmap for the same scope. If multiple existing files are equally plausible or the requested path belongs to another scope, ask one concise question and do not write.
 
+If a recorded path is missing, make one bounded search for a moved or renamed file with the same identity or scope before creating anything. Reuse a unique match and correct the existing link when writes are allowed. If no match exists, create at the resolved path; do not silently choose a new path on each invocation.
+
 Read an existing roadmap completely before using or updating it. Treat it as advisory input, not as current truth.
+
+When creating or adopting a roadmap, record its path and scope in the existing relevant project/role instructions or established index if one is available and writes are allowed. Keep one pointer for that scope, not a session-specific copy. The final absolute path also identifies the result, but a chat answer does not replace the file or an available durable pointer.
 
 ## Synchronize verified progress
 
@@ -81,4 +86,4 @@ When updating, preserve user-confirmed constraints and milestones whose completi
 
 Read the resulting file back once. Verify its identity, project scope, internal consistency, and recommended next task. Correct only a concrete defect in the requested roadmap change, then stop.
 
-Report the absolute path, the main recommendation, and only material unresolved decisions. Do not start implementing the roadmap or continue automatically.
+Report the absolute path, whether it was created, updated, or left unchanged, the main recommendation, and only material unresolved decisions. Unless writes were explicitly forbidden or genuinely blocked, finish with a saved roadmap rather than a chat-only plan. If saving is blocked, state the exact blocker without claiming persistence. Do not start implementing the roadmap or continue automatically.
