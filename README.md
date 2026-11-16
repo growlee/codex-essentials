@@ -128,9 +128,14 @@ The dependency-free auditor reads the selected runtime's skills, agents, and pro
 ```bash
 python scripts/audit-harness.py
 python scripts/audit-harness.py --json
+python scripts/audit-harness.py --strict --codex-path "/path/to/codex"
 ```
 
-Use `--source-root` or `--runtime-root` for non-default locations; plugin inventory uses that same runtime root. `--strict-mirrors` returns a non-zero exit when a directly synchronized managed mirror is changed, missing, or unsafe; omit it when plugin installation intentionally replaces direct skill mirrors. Missing direct copies do not imply missing plugin skills. An enabled registry entry and matching cache prove installation bytes, not that an already running task has reloaded its catalog. `--skip-plugins` skips registry/cache inspection entirely.
+Use `--source-root` or `--runtime-root` for non-default locations. Plugin inventory uses the selected runtime root. If Codex is outside `PATH`, use `--codex-path` with the executable path, including the `.exe` filename on Windows.
+
+`--strict` returns exit code 0 for a verified managed installation and 1 for drift or an incomplete check, including unavailable or skipped plugin inventory. It accepts missing direct skill copies when the managed plugin is enabled and its cache matches the source. A direct-only installation passes when the inventory confirms the managed plugin is absent and all direct skill mirrors match. Divergent or unsafe direct overrides, agent drift, duplicate prompts, and a disabled or mismatched managed plugin fail the check. Errors that prevent producing a report return 2.
+
+`--strict-mirrors` checks only direct managed skill and agent mirrors. It returns 1 when any of those mirrors is changed, missing, or unsafe. For an inventory without registry and cache inspection, use `--skip-plugins` alone. An enabled registry entry with a matching cache verifies the installed bytes. An already running task may still be using an earlier catalog.
 
 Prefer one installation route for packaged skills. When moving from direct skills
 to the plugin, first verify the enabled package and compare its complete cache

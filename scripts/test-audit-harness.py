@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Tests for the read-only Codex harness auditor."""
 
+import contextlib
 import importlib.util
+import io
 import json
 import os
 import shutil
@@ -160,6 +162,92 @@ class AuditHarnessTests(unittest.TestCase):
             self.assertEqual(report["managedPackage"]["cache"]["status"], "match")
             self.assertEqual(run.call_args.args[0], tuple(completed.args))
             self.assertEqual(run.call_args.kwargs["env"]["CODEX_HOME"], str(runtime))
+
+    def test_strict_cli_accepts_exact_enabled_plugin_with_explicit_executable(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            source, runtime = self.build_fixture(Path(temporary))
+            self.add_plugin_manifests(source)
+            self.populate_plugin_cache(source, runtime)
+            shutil.rmtree(runtime / "skills")
+            (runtime / "prompts/analyst.md").unlink()
+            shutil.copyfile(source / "agents/verifier.toml", runtime / "agents/verifier.toml")
+            executable = source / "directory with spaces" / "codex.exe"
+            args = [
+                "--source-root", str(source), "--runtime-root", str(runtime),
+                "--codex-path", str(executable), "--strict", "--json",
+            ]
+            completed = subprocess.CompletedProcess([], 0, stdout=json.dumps(self.plugin_payload()))
+            with mock.patch.object(AUDIT.subprocess, "run", return_value=completed) as run:
+                output = io.StringIO()
+                with contextlib.redirect_stdout(output):
+                    self.assertEqual(AUDIT.main(args), 0)
+
+            self.assertEqual(run.call_args.args[0][0], str(executable))
+            self.assertEqual(run.call_args.args[0][1:], ("plugin", "list", "--disable", "remote_plugin", "--json"))
+            report = json.loads(output.getvalue())
+            self.assertEqual(report["summary"]["skills"]["missing"], 2)
+            self.assertTrue(AUDIT.direct_mirrors_have_drift(report))
+
+    def test_strict_rejects_drift_in_managed_installation(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            source, runtime = self.build_fixture(Path(temporary))
+            self.add_plugin_manifests(source)
+            self.populate_plugin_cache(source, runtime)
+            shutil.rmtree(runtime / "skills")
+            (runtime / "prompts/analyst.md").unlink()
+            shutil.copyfile(source / "agents/verifier.toml", runtime / "agents/verifier.toml")
+            completed = subprocess.CompletedProcess([], 0, stdout=json.dumps(self.plugin_payload()))
+            with mock.patch.object(AUDIT.subprocess, "run", return_value=completed):
+                paths_and_replacements = [
+                    (runtime / "skills/analyze/SKILL.md", "divergent skill"),
+                    (runtime / "agents/verifier.toml", "divergent agent"),
+                    (runtime / "prompts/analyst.md", "Same"),
+                    (runtime / "plugins/cache/codex-essentials/codex-essentials/1.2.3/skills/analyze/SKILL.md", "divergent cache"),
+                ]
+                for path, replacement in paths_and_replacements:
+                    with self.subTest(path=path.name):
+                        before = path.read_bytes() if path.exists() else None
+                        write(path, replacement)
+                        self.assertTrue(AUDIT.strict_audit_failed(AUDIT.build_report(source, runtime)))
+                        if before is None:
+                            path.unlink()
+                        else:
+                            path.write_bytes(before)
+                incomplete_prompt = runtime / "prompts/unreadable.md"
+                incomplete_prompt.mkdir()
+                report = AUDIT.build_report(source, runtime)
+                self.assertTrue(AUDIT.strict_audit_failed(report))
+                self.assertEqual(report["promptIssues"][0]["kind"], "not-regular-file")
+
+    def test_strict_direct_only_requires_complete_plugin_inventory(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            source, runtime = self.build_fixture(Path(temporary))
+            self.add_plugin_manifests(source)
+            shutil.copyfile(source / "agents/verifier.toml", runtime / "agents/verifier.toml")
+            shutil.copyfile(
+                source / "plugins/codex-essentials/skills/diagnose/SKILL.md",
+                runtime / "skills/diagnose/SKILL.md",
+            )
+            (runtime / "prompts/analyst.md").unlink()
+            command = [
+                sys.executable, str(SCRIPT), "--source-root", str(source),
+                "--runtime-root", str(runtime), "--json", "--strict",
+            ]
+            completed = subprocess.CompletedProcess([], 0, stdout='{"installed": []}')
+            with mock.patch.object(AUDIT.subprocess, "run", return_value=completed):
+                report = AUDIT.build_report(source, runtime)
+                self.assertFalse(AUDIT.strict_audit_failed(report))
+            unavailable = subprocess.run(
+                command + ["--codex-path", str(runtime / "nonexistent-executable")],
+                check=False, capture_output=True, text=True,
+            )
+            self.assertEqual(unavailable.returncode, 1, unavailable.stderr)
+            self.assertEqual(json.loads(unavailable.stdout)["plugins"]["status"], "unavailable")
+            skipped = subprocess.run(
+                command + ["--skip-plugins"], check=False, capture_output=True, text=True,
+            )
+            self.assertEqual(skipped.returncode, 1, skipped.stderr)
+            self.assertEqual(json.loads(skipped.stdout)["plugins"]["status"], "skipped")
 
     def test_failed_plugin_inventory_is_unknown_and_hides_cli_output(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

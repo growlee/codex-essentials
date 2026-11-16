@@ -246,20 +246,29 @@ def agent_instructions(text: str) -> Optional[str]:
     return match.group(1).strip() if match else None
 
 
-def duplicate_prompts(runtime_root: Path) -> List[str]:
+def prompt_report(runtime_root: Path) -> Tuple[List[str], List[Dict[str, str]]]:
     prompts_root = runtime_root / "prompts"
     agents_root = runtime_root / "agents"
     duplicates: List[str] = []
-    if (
-        linked_path_issue(prompts_root, "linked-root")
-        or linked_path_issue(agents_root, "linked-root")
-        or not prompts_root.is_dir()
-        or not agents_root.is_dir()
-    ):
-        return duplicates
-    for prompt in sorted(prompts_root.glob("*.md"), key=lambda item: item.name):
+    issues: List[Dict[str, str]] = []
+    for root in (prompts_root, agents_root):
+        issue = linked_path_issue(root, "linked-root")
+        if issue:
+            issues.append(issue)
+        elif root.exists() and not root.is_dir():
+            issues.append({"kind": "not-directory", "path": str(root)})
+    if issues or not prompts_root.is_dir() or not agents_root.is_dir():
+        return duplicates, issues
+    for prompt in sorted(prompts_root.iterdir(), key=lambda item: item.name):
+        if prompt.suffix.lower() != ".md":
+            continue
         agent = agents_root / (prompt.stem + ".toml")
-        if linked_path_issue(prompt, "linked-file") or linked_path_issue(agent, "linked-file"):
+        issue = linked_path_issue(prompt, "linked-file") or linked_path_issue(agent, "linked-file")
+        if issue:
+            issues.append(issue)
+            continue
+        if not prompt.is_file():
+            issues.append({"kind": "not-regular-file", "path": str(prompt)})
             continue
         if not agent.is_file():
             continue
@@ -267,7 +276,7 @@ def duplicate_prompts(runtime_root: Path) -> List[str]:
         instructions = agent_instructions(agent.read_text(encoding="utf-8"))
         if instructions is not None and prompt_body(prompt_text) == instructions:
             duplicates.append(prompt.name)
-    return duplicates
+    return duplicates, issues
 
 
 def parse_plugin_inventory(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -327,13 +336,19 @@ def managed_plugin_cache_report(
             "cache": {"status": "not-checked", "missing": [], "changed": [], "extra": []},
         }
     item = matching[0]
-    version = str(item.get("version", ""))
+    version = item.get("version", "")
     components = (marketplace_name, plugin_name, version)
-    if not all(SAFE_CACHE_COMPONENT.fullmatch(component) for component in components):
+    if (
+        not isinstance(item.get("enabled"), bool)
+        or not isinstance(item.get("installed", True), bool)
+        or not all(
+            isinstance(component, str) and SAFE_CACHE_COMPONENT.fullmatch(component)
+            for component in components
+        )
+    ):
         return {
             "name": plugin_name,
             "marketplace": marketplace_name,
-            "version": version,
             "registryStatus": "invalid",
             "cache": {"status": "not-checked", "missing": [], "changed": [], "extra": []},
         }
@@ -343,21 +358,26 @@ def managed_plugin_cache_report(
         "name": plugin_name,
         "marketplace": marketplace_name,
         "version": version,
-        "registryStatus": "enabled" if bool(item.get("enabled", False)) else "disabled",
+        "registryStatus": "enabled" if item["enabled"] else "disabled",
         "cache": compare_tree(source_plugin, cache),
     }
 
 
-def plugin_report(skip: bool, source_root: Path, runtime_root: Path) -> Dict[str, Any]:
+def plugin_report(
+    skip: bool, source_root: Path, runtime_root: Path, codex_path: Optional[Path] = None
+) -> Dict[str, Any]:
     if skip:
         return {"status": "skipped", "installed": [], "managedPackage": {"registryStatus": "skipped", "cache": {"status": "not-checked"}}}
+    command = PLUGIN_LIST_COMMAND
+    if codex_path is not None:
+        command = (str(absolute_path(codex_path)), *command[1:])
     try:
         environment = os.environ.copy()
         environment["CODEX_HOME"] = str(runtime_root)
         # This audit needs only local installation state. Remote marketplace
         # discovery can delay the CLI before it emits any local results.
         result = subprocess.run(
-            PLUGIN_LIST_COMMAND,
+            command,
             check=False,
             capture_output=True,
             env=environment,
@@ -365,7 +385,7 @@ def plugin_report(skip: bool, source_root: Path, runtime_root: Path) -> Dict[str
             encoding="utf-8",
             timeout=20,
         )
-    except (FileNotFoundError, subprocess.TimeoutExpired) as error:
+    except (OSError, subprocess.TimeoutExpired) as error:
         return {"status": "unavailable", "message": type(error).__name__, "installed": [], "managedPackage": {"registryStatus": "unknown", "cache": {"status": "not-checked"}}}
     except UnicodeDecodeError:
         return {"status": "error", "message": "codex plugin list returned invalid UTF-8", "installed": [], "managedPackage": {"registryStatus": "unknown", "cache": {"status": "not-checked"}}}
@@ -376,7 +396,11 @@ def plugin_report(skip: bool, source_root: Path, runtime_root: Path) -> Dict[str
     except json.JSONDecodeError:
         return {"status": "error", "message": "codex plugin list returned invalid JSON", "installed": [], "managedPackage": {"registryStatus": "unknown", "cache": {"status": "not-checked"}}}
     installed = payload.get("installed") if isinstance(payload, dict) else None
-    if not isinstance(installed, list) or any(not isinstance(item, dict) for item in installed):
+    if not isinstance(installed, list) or any(
+        not isinstance(item, dict)
+        or not all(isinstance(item.get(key), str) and item[key] for key in ("name", "marketplaceName"))
+        for item in installed
+    ):
         return {"status": "error", "message": "codex plugin list returned an invalid inventory", "installed": [], "managedPackage": {"registryStatus": "unknown", "cache": {"status": "not-checked"}}}
     return {
         "status": "ok",
@@ -393,15 +417,20 @@ def status_counts(items: Iterable[Dict[str, Any]]) -> Dict[str, int]:
     return counts
 
 
-def build_report(source_root: Path, runtime_root: Path, skip_plugins: bool = False) -> Dict[str, Any]:
+def build_report(
+    source_root: Path,
+    runtime_root: Path,
+    skip_plugins: bool = False,
+    codex_path: Optional[Path] = None,
+) -> Dict[str, Any]:
     source_root = absolute_path(source_root)
     runtime_root = absolute_path(runtime_root)
     skills = managed_skill_report(source_root, runtime_root)
     agents = managed_agent_report(source_root, runtime_root)
     managed_skill_names = [item["name"] for item in skills]
     managed_agent_names = [item["name"] for item in agents]
-    plugins = plugin_report(skip_plugins, source_root, runtime_root)
-    duplicates = duplicate_prompts(runtime_root)
+    plugins = plugin_report(skip_plugins, source_root, runtime_root, codex_path)
+    duplicates, prompt_issues = prompt_report(runtime_root)
     installed_plugins = plugins.get("installed", [])
     return {
         "schemaVersion": SCHEMA_VERSION,
@@ -414,6 +443,7 @@ def build_report(source_root: Path, runtime_root: Path, skip_plugins: bool = Fal
             "agents": unmanaged_names(runtime_root / "agents", managed_agent_names, ".toml"),
         },
         "promptDuplicates": duplicates,
+        "promptIssues": prompt_issues,
         "plugins": plugins,
         "summary": {
             "skills": status_counts(skills),
@@ -456,6 +486,8 @@ def render_text(report: Dict[str, Any]) -> str:
                 lines.append("direct {} {}: {}".format(kind[:-1], item["name"], item["status"]))
     if report["promptDuplicates"]:
         lines.append("exact prompt duplicates: {}".format(", ".join(report["promptDuplicates"])))
+    for issue in report["promptIssues"]:
+        lines.append("prompt check incomplete: {kind} at {path}".format(**issue))
     if report["unmanaged"]["skills"]:
         lines.append("unmanaged skills (inventory only): {}".format(", ".join(report["unmanaged"]["skills"])))
     if report["unmanaged"]["agents"]:
@@ -467,8 +499,16 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-root", type=Path, default=default_source_root())
     parser.add_argument("--runtime-root", type=Path, default=default_runtime_root())
+    parser.add_argument(
+        "--codex-path", type=Path, help="Path to the Codex executable (default: look up codex on PATH)."
+    )
     parser.add_argument("--json", action="store_true", dest="as_json")
     parser.add_argument("--skip-plugins", action="store_true")
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Exit 1 on managed installation drift or an incomplete audit.",
+    )
     parser.add_argument(
         "--strict-mirrors",
         action="store_true",
@@ -483,10 +523,27 @@ def direct_mirrors_have_drift(report: Dict[str, Any]) -> bool:
     return any(item["status"] != "match" for item in items)
 
 
+def strict_audit_failed(report: Dict[str, Any]) -> bool:
+    plugins = report["plugins"]
+    if plugins["status"] != "ok" or report["promptIssues"] or report["promptDuplicates"]:
+        return True
+    managed = plugins["managedPackage"]
+    registry = managed["registryStatus"]
+    supplied_by_plugin = registry == "enabled" and managed["cache"]["status"] == "match"
+    if registry != "missing" and not supplied_by_plugin:
+        return True
+    mirrors = report["managedMirrors"]
+    skill_statuses = {"match", "missing"} if supplied_by_plugin else {"match"}
+    return (
+        any(item["status"] not in skill_statuses for item in mirrors["skills"])
+        or any(item["status"] != "match" for item in mirrors["agents"])
+    )
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     args = parse_args(argv)
     try:
-        report = build_report(args.source_root, args.runtime_root, args.skip_plugins)
+        report = build_report(args.source_root, args.runtime_root, args.skip_plugins, args.codex_path)
     except (OSError, ValueError) as error:
         print("ERROR {}".format(error), file=sys.stderr)
         return 2
@@ -494,6 +551,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(json.dumps(report, indent=2, sort_keys=True))
     else:
         print(render_text(report))
+    if args.strict and strict_audit_failed(report):
+        return 1
     if args.strict_mirrors and direct_mirrors_have_drift(report):
         return 1
     return 0
