@@ -17,6 +17,7 @@ SCHEMA_VERSION = 1
 SKIP_NAMES = {".git", "__pycache__"}
 FILE_ATTRIBUTE_REPARSE_POINT = 0x400
 SAFE_CACHE_COMPONENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+-]*$")
+PLUGIN_LIST_COMMAND = ("codex", "plugin", "list", "--disable", "remote_plugin", "--json")
 
 
 def default_runtime_root() -> Path:
@@ -353,22 +354,30 @@ def plugin_report(skip: bool, source_root: Path, runtime_root: Path) -> Dict[str
     try:
         environment = os.environ.copy()
         environment["CODEX_HOME"] = str(runtime_root)
+        # This audit needs only local installation state. Remote marketplace
+        # discovery can delay the CLI before it emits any local results.
         result = subprocess.run(
-            ["codex", "plugin", "list", "--json"],
+            PLUGIN_LIST_COMMAND,
             check=False,
             capture_output=True,
             env=environment,
             text=True,
+            encoding="utf-8",
             timeout=20,
         )
     except (FileNotFoundError, subprocess.TimeoutExpired) as error:
         return {"status": "unavailable", "message": type(error).__name__, "installed": [], "managedPackage": {"registryStatus": "unknown", "cache": {"status": "not-checked"}}}
+    except UnicodeDecodeError:
+        return {"status": "error", "message": "codex plugin list returned invalid UTF-8", "installed": [], "managedPackage": {"registryStatus": "unknown", "cache": {"status": "not-checked"}}}
     if result.returncode != 0:
         return {"status": "error", "message": "codex plugin list failed", "installed": [], "managedPackage": {"registryStatus": "unknown", "cache": {"status": "not-checked"}}}
     try:
         payload = json.loads(result.stdout)
     except json.JSONDecodeError:
         return {"status": "error", "message": "codex plugin list returned invalid JSON", "installed": [], "managedPackage": {"registryStatus": "unknown", "cache": {"status": "not-checked"}}}
+    installed = payload.get("installed") if isinstance(payload, dict) else None
+    if not isinstance(installed, list) or any(not isinstance(item, dict) for item in installed):
+        return {"status": "error", "message": "codex plugin list returned an invalid inventory", "installed": [], "managedPackage": {"registryStatus": "unknown", "cache": {"status": "not-checked"}}}
     return {
         "status": "ok",
         "installed": parse_plugin_inventory(payload),
@@ -398,7 +407,7 @@ def build_report(source_root: Path, runtime_root: Path, skip_plugins: bool = Fal
         "schemaVersion": SCHEMA_VERSION,
         "sourceRoot": str(source_root),
         "runtimeRoot": str(runtime_root),
-        "scope": ["skills", "agents", "prompts", "codex plugin list --json"],
+        "scope": ["skills", "agents", "prompts", " ".join(PLUGIN_LIST_COMMAND)],
         "managedMirrors": {"skills": skills, "agents": agents},
         "unmanaged": {
             "skills": unmanaged_names(runtime_root / "skills", managed_skill_names),
@@ -420,6 +429,15 @@ def build_report(source_root: Path, runtime_root: Path, skip_plugins: bool = Fal
 
 def render_text(report: Dict[str, Any]) -> str:
     summary = report["summary"]
+    plugins = report["plugins"]
+    if plugins["status"] == "ok":
+        plugin_summary = "{} installed, {} disabled".format(
+            summary["pluginsInstalled"], summary["pluginsDisabled"]
+        )
+    else:
+        plugin_summary = plugins["status"]
+        if plugins.get("message"):
+            plugin_summary += " ({})".format(plugins["message"])
     lines = [
         "Codex harness audit (read-only)",
         "source: {}".format(report["sourceRoot"]),
@@ -427,9 +445,7 @@ def render_text(report: Dict[str, Any]) -> str:
         "skills (direct mirrors): {match} match, {changed} changed, {missing} missing, {unsafe} unsafe".format(**summary["skills"]),
         "agents (direct mirrors): {match} match, {changed} changed, {missing} missing, {unsafe} unsafe".format(**summary["agents"]),
         "duplicate prompts: {}".format(summary["promptDuplicates"]),
-        "plugins: {} installed, {} disabled ({})".format(
-            summary["pluginsInstalled"], summary["pluginsDisabled"], report["plugins"]["status"]
-        ),
+        "local plugins: {}".format(plugin_summary),
         "managed plugin: {}; cache {}".format(
             summary["managedPluginRegistry"], summary["managedPluginCache"]
         ),
@@ -437,7 +453,7 @@ def render_text(report: Dict[str, Any]) -> str:
     for kind in ("skills", "agents"):
         for item in report["managedMirrors"][kind]:
             if item["status"] != "match":
-                lines.append("{} {}: {}".format(kind[:-1], item["name"], item["status"]))
+                lines.append("direct {} {}: {}".format(kind[:-1], item["name"], item["status"]))
     if report["promptDuplicates"]:
         lines.append("exact prompt duplicates: {}".format(", ".join(report["promptDuplicates"])))
     if report["unmanaged"]["skills"]:

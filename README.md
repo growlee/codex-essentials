@@ -123,7 +123,7 @@ Both installers reject linked/reparse-point destinations and overlapping source/
 
 ## Inspect a local harness
 
-The dependency-free auditor reads the selected runtime's skills, agents, and prompts directories plus sanitized `codex plugin list --json` metadata and the managed plugin's versioned cache. It reports direct mirrors separately from plugin installation/cache status, unmanaged inventory, exact prompt duplicates, and enabled or disabled plugin counts. Linked or unreadable paths are reported as unsafe, not matching mirrors. It never repairs or removes anything.
+The dependency-free auditor reads the selected runtime's skills, agents, and prompts directories plus sanitized `codex plugin list --disable remote_plugin --json` metadata and the managed plugin's versioned cache. Remote discovery is disabled only for this query so unavailable remote services do not stall the local inventory; saved configuration is unchanged. It reports direct mirrors separately from plugin installation/cache status, unmanaged inventory, exact prompt duplicates, and enabled or disabled plugin counts. Missing direct skill copies are expected when the enabled plugin supplies them. Linked or unreadable paths are reported as unsafe, not matching mirrors. It never repairs or removes anything.
 
 ```bash
 python scripts/audit-harness.py

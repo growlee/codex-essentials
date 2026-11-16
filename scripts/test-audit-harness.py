@@ -143,13 +143,13 @@ class AuditHarnessTests(unittest.TestCase):
             self.assertEqual(absent["registryStatus"], "missing")
             self.assertEqual(absent["cache"]["status"], "not-applicable")
 
-    def test_plugin_command_is_bound_to_requested_runtime_root(self) -> None:
+    def test_plugin_command_is_local_and_bound_to_requested_runtime_root(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             source, runtime = self.build_fixture(Path(temporary))
             self.add_plugin_manifests(source)
             self.populate_plugin_cache(source, runtime)
             completed = subprocess.CompletedProcess(
-                ["codex", "plugin", "list", "--json"],
+                ["codex", "plugin", "list", "--disable", "remote_plugin", "--json"],
                 0,
                 stdout=json.dumps(self.plugin_payload()),
                 stderr="",
@@ -158,7 +158,37 @@ class AuditHarnessTests(unittest.TestCase):
                 report = AUDIT.plugin_report(False, source, runtime)
 
             self.assertEqual(report["managedPackage"]["cache"]["status"], "match")
+            self.assertEqual(run.call_args.args[0], tuple(completed.args))
             self.assertEqual(run.call_args.kwargs["env"]["CODEX_HOME"], str(runtime))
+
+    def test_failed_plugin_inventory_is_unknown_and_hides_cli_output(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            source, runtime = self.build_fixture(Path(temporary))
+            self.add_plugin_manifests(source)
+            self.populate_plugin_cache(source, runtime)
+            with mock.patch.object(
+                AUDIT.subprocess,
+                "run",
+                side_effect=subprocess.TimeoutExpired("codex", 20, stderr=b"private CLI detail"),
+            ):
+                report = AUDIT.build_report(source, runtime)
+
+            self.assertEqual(report["summary"]["managedPluginRegistry"], "unknown")
+            self.assertEqual(report["summary"]["managedPluginCache"], "not-checked")
+            rendered = AUDIT.render_text(report)
+            self.assertIn("local plugins: unavailable (TimeoutExpired)", rendered)
+            self.assertNotIn("0 installed", rendered)
+            self.assertNotIn("private CLI detail", json.dumps(report))
+
+    def test_missing_installed_list_is_an_error_instead_of_an_empty_inventory(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            source, runtime = self.build_fixture(Path(temporary))
+            completed = subprocess.CompletedProcess([], 0, stdout='{"available": []}', stderr="")
+            with mock.patch.object(AUDIT.subprocess, "run", return_value=completed):
+                report = AUDIT.plugin_report(False, source, runtime)
+
+            self.assertEqual(report["status"], "error")
+            self.assertEqual(report["managedPackage"]["registryStatus"], "unknown")
 
     def test_plugin_parser_drops_paths_and_other_runtime_metadata(self) -> None:
         payload = {
